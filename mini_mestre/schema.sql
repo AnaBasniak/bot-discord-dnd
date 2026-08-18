@@ -64,7 +64,7 @@ CREATE TABLE pericias (
     intimidacao BOOLEAN NOT NULL DEFAULT FALSE,
     intuicao BOOLEAN NOT NULL DEFAULT FALSE,
     investigacao BOOLEAN NOT NULL DEFAULT FALSE,
-    lidar_animais BOOLEAN NOT NULL DEFAULT FALSE,
+    adestrar_animais BOOLEAN NOT NULL DEFAULT FALSE,
     medicina BOOLEAN NOT NULL DEFAULT FALSE,
     natureza BOOLEAN NOT NULL DEFAULT FALSE,
     percepcao BOOLEAN NOT NULL DEFAULT FALSE,
@@ -92,6 +92,7 @@ CREATE TABLE proficiencias (
         REFERENCES personagens(id)
         ON DELETE CASCADE
 );
+
 CREATE TABLE salvaguardas (
     personagem_id INTEGER PRIMARY KEY,
 
@@ -135,6 +136,7 @@ CREATE TABLE subracas (
     CONSTRAINT uq_subraca_nome
         UNIQUE (raca_id, nome)
 );
+
 CREATE TABLE classes (
     id SERIAL PRIMARY KEY,
 
@@ -144,8 +146,11 @@ CREATE TABLE classes (
 
     dado_vida INTEGER NOT NULL,
 
-    nivel_maximo INTEGER NOT NULL DEFAULT 20
+    nivel_maximo INTEGER NOT NULL DEFAULT 20,
+
+    quantidade_pericias INTEGER NOT NULL DEFAULT 2
 );
+
 CREATE TABLE subclasses (
     id SERIAL PRIMARY KEY,
 
@@ -164,4 +169,346 @@ CREATE TABLE subclasses (
 
     CONSTRAINT uq_subclasse_nome
         UNIQUE (classe_id, nome)
+);
+
+CREATE TABLE bonus_atributos_raciais (
+    id SERIAL PRIMARY KEY,
+
+    raca_id INTEGER,
+    subraca_id INTEGER,
+
+    atributo TEXT NOT NULL,
+    bonus INTEGER NOT NULL,
+
+    CONSTRAINT fk_bonus_raca
+        FOREIGN KEY (raca_id)
+        REFERENCES racas(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_bonus_subraca
+        FOREIGN KEY (subraca_id)
+        REFERENCES subracas(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT chk_bonus_origem
+        CHECK (
+            raca_id IS NOT NULL
+            OR subraca_id IS NOT NULL
+        )
+);
+
+CREATE TABLE caracteristicas_raciais (
+    id SERIAL PRIMARY KEY,
+
+    raca_id INTEGER,
+    subraca_id INTEGER,
+
+    nome TEXT NOT NULL,
+    descricao TEXT,
+
+    CONSTRAINT fk_caracteristica_raca
+        FOREIGN KEY (raca_id)
+        REFERENCES racas(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_caracteristica_subraca
+        FOREIGN KEY (subraca_id)
+        REFERENCES subracas(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT chk_caracteristica_origem
+        CHECK (
+            raca_id IS NOT NULL
+            OR subraca_id IS NOT NULL
+        )
+);
+
+CREATE TABLE escolhas_raciais (
+    id SERIAL PRIMARY KEY,
+
+    raca_id INTEGER,
+    subraca_id INTEGER,
+
+    tipo TEXT NOT NULL,
+    titulo TEXT NOT NULL,
+    quantidade INTEGER NOT NULL DEFAULT 1,
+
+    CONSTRAINT fk_escolha_raca
+        FOREIGN KEY (raca_id)
+        REFERENCES racas(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_escolha_subraca
+        FOREIGN KEY (subraca_id)
+        REFERENCES subracas(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT chk_escolha_origem
+        CHECK (
+            raca_id IS NOT NULL
+            OR subraca_id IS NOT NULL
+        )
+);
+
+CREATE TABLE salvaguardas_classes (
+    id SERIAL PRIMARY KEY,
+
+    classe_id INTEGER NOT NULL,
+    atributo TEXT NOT NULL,
+
+    CONSTRAINT fk_salvaguarda_classe
+        FOREIGN KEY (classe_id)
+        REFERENCES classes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_salvaguarda_classe
+        UNIQUE (classe_id, atributo)
+);
+
+CREATE TABLE pericias_classes (
+    id SERIAL PRIMARY KEY,
+
+    classe_id INTEGER NOT NULL,
+
+    pericia TEXT NOT NULL,
+
+    CONSTRAINT fk_pericia_classe
+        FOREIGN KEY (classe_id)
+        REFERENCES classes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_pericia_classe
+        UNIQUE (classe_id, pericia)
+);
+
+CREATE TABLE proficiencias_classes (
+    id SERIAL PRIMARY KEY,
+
+    classe_id INTEGER NOT NULL,
+
+    tipo TEXT NOT NULL,
+    nome TEXT NOT NULL,
+
+    CONSTRAINT fk_proficiencia_classe
+        FOREIGN KEY (classe_id)
+        REFERENCES classes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_proficiencia_classe
+        UNIQUE (classe_id, tipo, nome)
+);
+
+CREATE TABLE equipamentos (
+    id SERIAL PRIMARY KEY,
+
+    nome TEXT NOT NULL UNIQUE,
+    tipo TEXT NOT NULL,
+    descricao TEXT
+);
+
+CREATE TABLE escolhas_equipamentos_classes (
+    id SERIAL PRIMARY KEY,
+
+    classe_id INTEGER NOT NULL,
+
+    grupo INTEGER NOT NULL,
+    quantidade INTEGER NOT NULL DEFAULT 1,
+
+    titulo TEXT NOT NULL,
+
+    CONSTRAINT fk_escolha_equipamento_classe
+        FOREIGN KEY (classe_id)
+        REFERENCES classes(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE opcoes_equipamentos_classes (
+    id SERIAL PRIMARY KEY,
+
+    escolha_id INTEGER NOT NULL,
+
+    opcao INTEGER NOT NULL,
+
+    equipamento_id INTEGER,
+
+    categoria TEXT,
+
+    quantidade INTEGER NOT NULL DEFAULT 1,
+
+    CONSTRAINT fk_opcao_escolha
+        FOREIGN KEY (escolha_id)
+        REFERENCES escolhas_equipamentos_classes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_opcao_equipamento
+        FOREIGN KEY (equipamento_id)
+        REFERENCES equipamentos(id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE caracteristicas_classes (
+    id SERIAL PRIMARY KEY,
+
+    classe_id INTEGER NOT NULL,
+
+    nivel INTEGER NOT NULL,
+
+    nome TEXT NOT NULL,
+
+    descricao TEXT,
+
+    CONSTRAINT fk_caracteristica_classe
+        FOREIGN KEY (classe_id)
+        REFERENCES classes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_caracteristica_classe
+        UNIQUE (classe_id, nivel, nome)
+);
+CREATE TABLE caracteristicas_subclasses (
+    id SERIAL PRIMARY KEY,
+
+    subclasse_id INTEGER NOT NULL,
+
+    nivel INTEGER NOT NULL,
+
+    nome TEXT NOT NULL,
+
+    descricao TEXT,
+
+    CONSTRAINT fk_caracteristica_subclasse
+        FOREIGN KEY (subclasse_id)
+        REFERENCES subclasses(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_caracteristica_subclasse
+        UNIQUE (subclasse_id, nivel, nome)
+);
+CREATE TABLE antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    nome TEXT NOT NULL UNIQUE,
+
+    descricao TEXT
+);
+
+
+CREATE TABLE pericias_antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    antecedente_id INTEGER NOT NULL,
+
+    pericia TEXT NOT NULL,
+
+    CONSTRAINT fk_pericia_antecedente
+        FOREIGN KEY (antecedente_id)
+        REFERENCES antecedentes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_pericia_antecedente
+        UNIQUE (antecedente_id, pericia)
+);
+
+
+CREATE TABLE proficiencias_antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    antecedente_id INTEGER NOT NULL,
+
+    tipo TEXT NOT NULL,
+    nome TEXT NOT NULL,
+
+    CONSTRAINT fk_proficiencia_antecedente
+        FOREIGN KEY (antecedente_id)
+        REFERENCES antecedentes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_proficiencia_antecedente
+        UNIQUE (antecedente_id, tipo, nome)
+);
+
+
+CREATE TABLE idiomas_antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    antecedente_id INTEGER NOT NULL,
+
+    quantidade INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT fk_idioma_antecedente
+        FOREIGN KEY (antecedente_id)
+        REFERENCES antecedentes(id)
+        ON DELETE CASCADE
+);
+CREATE TABLE antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    nome TEXT NOT NULL UNIQUE,
+
+    descricao TEXT
+);
+
+
+CREATE TABLE pericias_antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    antecedente_id INTEGER NOT NULL,
+
+    pericia TEXT NOT NULL,
+
+    CONSTRAINT fk_pericia_antecedente
+        FOREIGN KEY (antecedente_id)
+        REFERENCES antecedentes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_pericia_antecedente
+        UNIQUE (antecedente_id, pericia)
+);
+
+
+CREATE TABLE proficiencias_antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    antecedente_id INTEGER NOT NULL,
+
+    tipo TEXT NOT NULL,
+    nome TEXT NOT NULL,
+
+    CONSTRAINT fk_proficiencia_antecedente
+        FOREIGN KEY (antecedente_id)
+        REFERENCES antecedentes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_proficiencia_antecedente
+        UNIQUE (antecedente_id, tipo, nome)
+);
+
+
+CREATE TABLE idiomas_antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    antecedente_id INTEGER NOT NULL,
+
+    quantidade INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT fk_idioma_antecedente
+        FOREIGN KEY (antecedente_id)
+        REFERENCES antecedentes(id)
+        ON DELETE CASCADE
+);
+CREATE TABLE caracteristicas_antecedentes (
+    id SERIAL PRIMARY KEY,
+
+    antecedente_id INTEGER NOT NULL,
+
+    nome TEXT NOT NULL,
+    descricao TEXT,
+
+    CONSTRAINT fk_caracteristica_antecedente
+        FOREIGN KEY (antecedente_id)
+        REFERENCES antecedentes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_caracteristica_antecedente
+        UNIQUE (antecedente_id, nome)
 );
