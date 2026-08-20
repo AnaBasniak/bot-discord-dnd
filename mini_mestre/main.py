@@ -35,7 +35,7 @@ class MiniMestre(commands.Bot):
             intents=intents
         )
 
-    async def setup_hook(self):
+     async def setup_hook(self):
 
     await self.load_extension(
         "mini_mestre.cogs.fichas"
@@ -53,13 +53,17 @@ class MiniMestre(commands.Bot):
         "mini_mestre.cogs.inventario"
     )
 
+    await self.load_extension(
+        "mini_mestre.cogs.bau"
+    )
+
     comandos = await self.tree.sync()
 
     print(
         f"{len(comandos)} comando(s) "
         "sincronizado(s) com o Discord."
     )
-    
+
 # =========================================================
 # EVENTOS
 # =========================================================

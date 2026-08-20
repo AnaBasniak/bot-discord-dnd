@@ -1834,3 +1834,532 @@ def recalcular_ca_personagem(
         personagem["classe"],
         atributos
     )
+    # =========================================================
+# BAÚ COMUNITÁRIO
+# =========================================================
+
+def listar_bau():
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                equipamento_id,
+                nome,
+                quantidade
+            FROM bau_comunitario
+            ORDER BY nome;
+            """
+        )
+
+        return [
+            {
+                "id": linha[0],
+                "equipamento_id": linha[1],
+                "nome": linha[2],
+                "quantidade": linha[3],
+            }
+            for linha in cursor.fetchall()
+        ]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def adicionar_item_bau(
+    nome,
+    quantidade=1,
+    equipamento_id=None
+):
+    if quantidade <= 0:
+        raise ValueError(
+            "A quantidade deve ser maior que zero."
+        )
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        # Se não recebemos o ID, tenta encontrar
+        # o item na tabela oficial de equipamentos.
+        if equipamento_id is None:
+
+            cursor.execute(
+                """
+                SELECT id
+                FROM equipamentos
+                WHERE LOWER(nome) = LOWER(%s);
+                """,
+                (nome,)
+            )
+
+            resultado = cursor.fetchone()
+
+            if resultado:
+                equipamento_id = resultado[0]
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM bau_comunitario
+            WHERE LOWER(nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (nome,)
+        )
+
+        existente = cursor.fetchone()
+
+        if existente:
+
+            cursor.execute(
+                """
+                UPDATE bau_comunitario
+                SET quantidade =
+                    quantidade + %s
+                WHERE id = %s;
+                """,
+                (
+                    quantidade,
+                    existente[0]
+                )
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                INSERT INTO bau_comunitario (
+                    equipamento_id,
+                    nome,
+                    quantidade
+                )
+                VALUES (%s, %s, %s);
+                """,
+                (
+                    equipamento_id,
+                    nome,
+                    quantidade
+                )
+            )
+
+        conexao.commit()
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def remover_item_bau(
+    nome,
+    quantidade=1
+):
+    if quantidade <= 0:
+        raise ValueError(
+            "A quantidade deve ser maior que zero."
+        )
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                equipamento_id,
+                nome,
+                quantidade
+            FROM bau_comunitario
+            WHERE LOWER(nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (nome,)
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            raise ValueError(
+                "Esse item não está no baú."
+            )
+
+        item_id = resultado[0]
+        equipamento_id = resultado[1]
+        nome_real = resultado[2]
+        quantidade_atual = resultado[3]
+
+        if quantidade > quantidade_atual:
+
+            raise ValueError(
+                (
+                    "O baú possui apenas "
+                    f"{quantidade_atual} unidade(s) "
+                    f"de {nome_real}."
+                )
+            )
+
+        if quantidade == quantidade_atual:
+
+            cursor.execute(
+                """
+                DELETE FROM bau_comunitario
+                WHERE id = %s;
+                """,
+                (item_id,)
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                UPDATE bau_comunitario
+                SET quantidade =
+                    quantidade - %s
+                WHERE id = %s;
+                """,
+                (
+                    quantidade,
+                    item_id
+                )
+            )
+
+        conexao.commit()
+
+        return {
+            "equipamento_id": equipamento_id,
+            "nome": nome_real,
+            "quantidade": quantidade,
+        }
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+# =========================================================
+# TRANSFERIR INVENTÁRIO → BAÚ
+# =========================================================
+
+def transferir_inventario_para_bau(
+    personagem_id,
+    nome,
+    quantidade=1
+):
+    if quantidade <= 0:
+        raise ValueError(
+            "A quantidade deve ser maior que zero."
+        )
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                equipamento_id,
+                nome,
+                quantidade,
+                equipado
+            FROM inventario_personagens
+            WHERE personagem_id = %s
+              AND LOWER(nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (
+                personagem_id,
+                nome
+            )
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            raise ValueError(
+                "Esse item não está no inventário."
+            )
+
+        item_id = resultado[0]
+        equipamento_id = resultado[1]
+        nome_real = resultado[2]
+        quantidade_atual = resultado[3]
+        equipado = resultado[4]
+
+        if quantidade > quantidade_atual:
+
+            raise ValueError(
+                (
+                    "O personagem possui apenas "
+                    f"{quantidade_atual} unidade(s) "
+                    f"de {nome_real}."
+                )
+            )
+
+        # Se só existe uma unidade e ela está equipada,
+        # desequipa antes da transferência.
+        if (
+            equipado
+            and quantidade == quantidade_atual
+        ):
+
+            cursor.execute(
+                """
+                UPDATE inventario_personagens
+                SET equipado = FALSE
+                WHERE id = %s;
+                """,
+                (item_id,)
+            )
+
+        if quantidade == quantidade_atual:
+
+            cursor.execute(
+                """
+                DELETE FROM inventario_personagens
+                WHERE id = %s;
+                """,
+                (item_id,)
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                UPDATE inventario_personagens
+                SET quantidade =
+                    quantidade - %s
+                WHERE id = %s;
+                """,
+                (
+                    quantidade,
+                    item_id
+                )
+            )
+
+        # Procura se já existe no baú.
+        cursor.execute(
+            """
+            SELECT id
+            FROM bau_comunitario
+            WHERE LOWER(nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (nome_real,)
+        )
+
+        item_bau = cursor.fetchone()
+
+        if item_bau:
+
+            cursor.execute(
+                """
+                UPDATE bau_comunitario
+                SET quantidade =
+                    quantidade + %s
+                WHERE id = %s;
+                """,
+                (
+                    quantidade,
+                    item_bau[0]
+                )
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                INSERT INTO bau_comunitario (
+                    equipamento_id,
+                    nome,
+                    quantidade
+                )
+                VALUES (%s, %s, %s);
+                """,
+                (
+                    equipamento_id,
+                    nome_real,
+                    quantidade
+                )
+            )
+
+        conexao.commit()
+
+        return {
+            "nome": nome_real,
+            "quantidade": quantidade,
+        }
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+# =========================================================
+# TRANSFERIR BAÚ → INVENTÁRIO
+# =========================================================
+
+def transferir_bau_para_inventario(
+    personagem_id,
+    nome,
+    quantidade=1
+):
+    if quantidade <= 0:
+        raise ValueError(
+            "A quantidade deve ser maior que zero."
+        )
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                equipamento_id,
+                nome,
+                quantidade
+            FROM bau_comunitario
+            WHERE LOWER(nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (nome,)
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            raise ValueError(
+                "Esse item não está no baú."
+            )
+
+        item_bau_id = resultado[0]
+        equipamento_id = resultado[1]
+        nome_real = resultado[2]
+        quantidade_bau = resultado[3]
+
+        if quantidade > quantidade_bau:
+
+            raise ValueError(
+                (
+                    "O baú possui apenas "
+                    f"{quantidade_bau} unidade(s) "
+                    f"de {nome_real}."
+                )
+            )
+
+        if quantidade == quantidade_bau:
+
+            cursor.execute(
+                """
+                DELETE FROM bau_comunitario
+                WHERE id = %s;
+                """,
+                (item_bau_id,)
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                UPDATE bau_comunitario
+                SET quantidade =
+                    quantidade - %s
+                WHERE id = %s;
+                """,
+                (
+                    quantidade,
+                    item_bau_id
+                )
+            )
+
+        cursor.execute(
+            """
+            SELECT id
+            FROM inventario_personagens
+            WHERE personagem_id = %s
+              AND LOWER(nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (
+                personagem_id,
+                nome_real
+            )
+        )
+
+        item_inventario = cursor.fetchone()
+
+        if item_inventario:
+
+            cursor.execute(
+                """
+                UPDATE inventario_personagens
+                SET quantidade =
+                    quantidade + %s
+                WHERE id = %s;
+                """,
+                (
+                    quantidade,
+                    item_inventario[0]
+                )
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                INSERT INTO inventario_personagens (
+                    personagem_id,
+                    equipamento_id,
+                    nome,
+                    quantidade,
+                    equipado
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    FALSE
+                );
+                """,
+                (
+                    personagem_id,
+                    equipamento_id,
+                    nome_real,
+                    quantidade
+                )
+            )
+
+        conexao.commit()
+
+        return {
+            "nome": nome_real,
+            "quantidade": quantidade,
+        }
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
