@@ -124,7 +124,7 @@ DADOS_ANTECEDENTES = {
 
     "Herói do Povo": {
         "pericias": [
-            "adestrar_animais",
+            "lidar_animais",
             "sobrevivencia",
         ],
 

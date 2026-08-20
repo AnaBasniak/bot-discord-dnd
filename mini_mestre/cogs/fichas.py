@@ -53,7 +53,7 @@ NOMES_PERICIAS = {
     "intimidacao": "Intimidação",
     "intuicao": "Intuição",
     "investigacao": "Investigação",
-    "adestrar_animais": "Adestrar Animais",
+    "lidar_animais": "Lidar com Animais",
     "medicina": "Medicina",
     "natureza": "Natureza",
     "percepcao": "Percepção",

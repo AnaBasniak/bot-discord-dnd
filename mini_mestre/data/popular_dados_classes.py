@@ -66,7 +66,7 @@ SALVAGUARDAS = {
 
 PERICIAS = {
     "Bárbaro": [
-        "adestrar_animais",
+        "lidar_animais",
         "atletismo",
         "intimidacao",
         "natureza",
@@ -97,7 +97,7 @@ PERICIAS = {
     ],
 
     "Druida": [
-        "adestrar_animais",
+        "lidar_animais",
         "arcanismo",
         "intuicao",
         "medicina",
@@ -118,7 +118,7 @@ PERICIAS = {
 
     "Guerreiro": [
         "acrobacia",
-        "adestrar_animais",
+        "lidar_animais",
         "atletismo",
         "historia",
         "intuicao",
@@ -169,7 +169,7 @@ PERICIAS = {
     ],
 
     "Patrulheiro": [
-        "adestrar_animais",
+        "lidar_animais",
         "atletismo",
         "furtividade",
         "intuicao",

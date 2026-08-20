@@ -1,7 +1,6 @@
 import os
 
 import discord
-from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 import psycopg2
@@ -13,9 +12,7 @@ import psycopg2
 
 load_dotenv()
 
-TOKEN = os.getenv(
-    "DISCORD_TOKEN"
-)
+TOKEN = os.getenv("DISCORD_TOKEN")
 
 
 # =========================================================
@@ -32,7 +29,7 @@ intents = discord.Intents.default()
 class MiniMestre(commands.Bot):
 
     def __init__(self):
-
+        
         super().__init__(
             command_prefix="!",
             intents=intents
@@ -40,30 +37,35 @@ class MiniMestre(commands.Bot):
 
     async def setup_hook(self):
 
-        # Carrega os comandos de ficha
-        await self.load_extension(
-            "mini_mestre.cogs.fichas"
-        )
+    await self.load_extension(
+        "mini_mestre.cogs.fichas"
+    )
 
-        # Sincroniza slash commands com Discord
-        comandos = await self.tree.sync()
+    await self.load_extension(
+        "mini_mestre.cogs.consultar_ficha"
+    )
 
-        print(
-            f"{len(comandos)} comando(s) "
-            "sincronizado(s) com o Discord."
-        )
+    await self.load_extension(
+        "mini_mestre.cogs.pv"
+    )
 
+    await self.load_extension(
+        "mini_mestre.cogs.inventario"
+    )
 
-bot = MiniMestre()
+    comandos = await self.tree.sync()
 
-
+    print(
+        f"{len(comandos)} comando(s) "
+        "sincronizado(s) com o Discord."
+    )
+    
 # =========================================================
-# EVENTO DE CONEXÃO
+# EVENTOS
 # =========================================================
 
 @bot.event
 async def on_ready():
-
     print(
         f"Mini Mestre conectado como {bot.user}"
     )
@@ -77,9 +79,7 @@ async def on_ready():
     name="teste",
     description="Testa se o Mini Mestre está funcionando."
 )
-async def teste(
-    interaction: discord.Interaction
-):
+async def teste(interaction: discord.Interaction):
 
     await interaction.response.send_message(
         "Funcionando! O Mini Mestre está vivo!",
@@ -88,11 +88,10 @@ async def teste(
 
 
 # =========================================================
-# TESTAR POSTGRESQL
+# TESTE DO POSTGRESQL
 # =========================================================
 
 try:
-
     conexao = psycopg2.connect(
         host=os.getenv("DB_HOST"),
         port=os.getenv("DB_PORT"),
@@ -123,10 +122,8 @@ except Exception as erro:
 if not TOKEN:
 
     raise RuntimeError(
-        "DISCORD_TOKEN não foi encontrado no arquivo .env."
+        "DISCORD_TOKEN não foi encontrado."
     )
 
 
-bot.run(
-    TOKEN
-)
+bot.run(TOKEN)

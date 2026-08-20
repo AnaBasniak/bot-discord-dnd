@@ -16,7 +16,7 @@ PERICIAS_VALIDAS = {
     "intimidacao",
     "intuicao",
     "investigacao",
-    "adestrar_animais",
+    "lidar_animais",
     "medicina",
     "natureza",
     "percepcao",
@@ -880,6 +880,37 @@ def salvar_inventario(
 
     try:
         for item in itens:
+
+            equipamento_id = item.get(
+                "equipamento_id"
+            )
+
+            equipado = False
+
+            # Armaduras e escudos iniciais
+            # já começam equipados.
+            if equipamento_id is not None:
+
+                cursor.execute(
+                    """
+                    SELECT tipo
+                    FROM equipamentos
+                    WHERE id = %s;
+                    """,
+                    (equipamento_id,)
+                )
+
+                resultado = cursor.fetchone()
+
+                if resultado:
+                    tipo = resultado[0]
+
+                    if tipo in (
+                        "armadura",
+                        "escudo",
+                    ):
+                        equipado = True
+
             cursor.execute(
                 """
                 INSERT INTO inventario_personagens (
@@ -894,14 +925,18 @@ def salvar_inventario(
                     %s,
                     %s,
                     %s,
-                    FALSE
+                    %s
                 );
                 """,
                 (
                     personagem_id,
-                    item.get("equipamento_id"),
+                    equipamento_id,
                     item["nome"],
-                    item.get("quantidade", 1),
+                    item.get(
+                        "quantidade",
+                        1
+                    ),
+                    equipado,
                 )
             )
 
@@ -914,7 +949,6 @@ def salvar_inventario(
     finally:
         cursor.close()
         conexao.close()
-
 
 # =========================================================
 # CA
@@ -947,13 +981,15 @@ def calcular_ca_personagem(
             """
             SELECT
                 e.nome,
+                e.tipo,
                 e.ca_base,
                 e.limite_destreza,
                 e.bonus_ca
             FROM inventario_personagens i
             JOIN equipamentos e
                 ON e.id = i.equipamento_id
-            WHERE i.personagem_id = %s;
+            WHERE i.personagem_id = %s
+              AND i.equipado = TRUE;
             """,
             (personagem_id,)
         )
@@ -964,17 +1000,20 @@ def calcular_ca_personagem(
         bonus_escudo = 0
 
         for item in itens:
-            ca_base = item[1]
-            limite_destreza = item[2]
-            bonus_ca = item[3]
 
-            if bonus_ca:
+            tipo = item[1]
+            ca_base = item[2]
+            limite_destreza = item[3]
+            bonus_ca = item[4]
+
+            if tipo == "escudo":
                 bonus_escudo = max(
                     bonus_escudo,
                     bonus_ca
                 )
 
-            if ca_base is not None:
+            if tipo == "armadura":
+
                 if limite_destreza is None:
                     bonus_des = mod_des
 
@@ -992,19 +1031,27 @@ def calcular_ca_personagem(
                 )
 
         if armaduras:
-            ca = max(armaduras)
+
+            ca = max(
+                armaduras
+            )
 
         else:
+
             if classe_nome == "Bárbaro":
                 ca = max(
                     ca,
-                    10 + mod_des + mod_con
+                    10
+                    + mod_des
+                    + mod_con
                 )
 
             if classe_nome == "Monge":
                 ca = max(
                     ca,
-                    10 + mod_des + mod_sab
+                    10
+                    + mod_des
+                    + mod_sab
                 )
 
         if classe_nome != "Monge":
@@ -1033,3 +1080,757 @@ def calcular_ca_personagem(
     finally:
         cursor.close()
         conexao.close()
+
+        # =========================================================
+# CONSULTAR PERSONAGENS
+# =========================================================
+
+def listar_personagens_jogador(discord_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                nome,
+                nivel,
+                raca,
+                subraca,
+                classe,
+                subclasse,
+                antecedente,
+                pv_atual,
+                pv_maximo,
+                ca,
+                iniciativa,
+                deslocamento
+            FROM personagens
+            WHERE jogador_id = %s
+            ORDER BY nome;
+            """,
+            (discord_id,)
+        )
+
+        resultados = cursor.fetchall()
+
+        return [
+            {
+                "id": linha[0],
+                "nome": linha[1],
+                "nivel": linha[2],
+                "raca": linha[3],
+                "subraca": linha[4],
+                "classe": linha[5],
+                "subclasse": linha[6],
+                "antecedente": linha[7],
+                "pv_atual": linha[8],
+                "pv_maximo": linha[9],
+                "ca": linha[10],
+                "iniciativa": linha[11],
+                "deslocamento": linha[12],
+            }
+            for linha in resultados
+        ]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def buscar_personagem(personagem_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                jogador_id,
+                nome,
+                nivel,
+                raca,
+                subraca,
+                classe,
+                subclasse,
+                antecedente,
+                pv_atual,
+                pv_maximo,
+                ca,
+                iniciativa,
+                deslocamento
+            FROM personagens
+            WHERE id = %s;
+            """,
+            (personagem_id,)
+        )
+
+        linha = cursor.fetchone()
+
+        if linha is None:
+            return None
+
+        return {
+            "id": linha[0],
+            "jogador_id": linha[1],
+            "nome": linha[2],
+            "nivel": linha[3],
+            "raca": linha[4],
+            "subraca": linha[5],
+            "classe": linha[6],
+            "subclasse": linha[7],
+            "antecedente": linha[8],
+            "pv_atual": linha[9],
+            "pv_maximo": linha[10],
+            "ca": linha[11],
+            "iniciativa": linha[12],
+            "deslocamento": linha[13],
+        }
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+# =========================================================
+# ATRIBUTOS
+# =========================================================
+
+def buscar_atributos_personagem(personagem_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                forca,
+                destreza,
+                constituicao,
+                inteligencia,
+                sabedoria,
+                carisma
+            FROM atributos
+            WHERE personagem_id = %s;
+            """,
+            (personagem_id,)
+        )
+
+        linha = cursor.fetchone()
+
+        if linha is None:
+            return None
+
+        return {
+            "forca": linha[0],
+            "destreza": linha[1],
+            "constituicao": linha[2],
+            "inteligencia": linha[3],
+            "sabedoria": linha[4],
+            "carisma": linha[5],
+        }
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+# =========================================================
+# PERÍCIAS
+# =========================================================
+
+def buscar_pericias_personagem(personagem_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                acrobacia,
+                arcanismo,
+                atletismo,
+                atuacao,
+                enganacao,
+                furtividade,
+                historia,
+                intimidacao,
+                intuicao,
+                investigacao,
+                lidar_animais,
+                medicina,
+                natureza,
+                percepcao,
+                persuasao,
+                prestidigitacao,
+                religiao,
+                sobrevivencia
+            FROM pericias
+            WHERE personagem_id = %s;
+            """,
+            (personagem_id,)
+        )
+
+        linha = cursor.fetchone()
+
+        if linha is None:
+            return []
+
+        nomes = [
+            "acrobacia",
+            "arcanismo",
+            "atletismo",
+            "atuacao",
+            "enganacao",
+            "furtividade",
+            "historia",
+            "intimidacao",
+            "intuicao",
+            "investigacao",
+            "lidar_animais",
+            "medicina",
+            "natureza",
+            "percepcao",
+            "persuasao",
+            "prestidigitacao",
+            "religiao",
+            "sobrevivencia",
+        ]
+
+        return [
+            nomes[indice]
+            for indice, possui in enumerate(linha)
+            if possui
+        ]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+# =========================================================
+# SALVAGUARDAS
+# =========================================================
+
+def buscar_salvaguardas_personagem(personagem_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                forca,
+                destreza,
+                constituicao,
+                inteligencia,
+                sabedoria,
+                carisma
+            FROM salvaguardas
+            WHERE personagem_id = %s;
+            """,
+            (personagem_id,)
+        )
+
+        linha = cursor.fetchone()
+
+        if linha is None:
+            return []
+
+        nomes = [
+            "forca",
+            "destreza",
+            "constituicao",
+            "inteligencia",
+            "sabedoria",
+            "carisma",
+        ]
+
+        return [
+            nomes[indice]
+            for indice, possui in enumerate(linha)
+            if possui
+        ]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+# =========================================================
+# PROFICIÊNCIAS
+# =========================================================
+
+def buscar_proficiencias_personagem(personagem_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT tipo, nome
+            FROM proficiencias
+            WHERE personagem_id = %s
+            ORDER BY tipo, nome;
+            """,
+            (personagem_id,)
+        )
+
+        return [
+            {
+                "tipo": linha[0],
+                "nome": linha[1],
+            }
+            for linha in cursor.fetchall()
+        ]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+# =========================================================
+# INVENTÁRIO
+# =========================================================
+
+def buscar_inventario_personagem(personagem_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                nome,
+                quantidade,
+                equipado
+            FROM inventario_personagens
+            WHERE personagem_id = %s
+            ORDER BY nome;
+            """,
+            (personagem_id,)
+        )
+
+        return [
+            {
+                "nome": linha[0],
+                "quantidade": linha[1],
+                "equipado": linha[2],
+            }
+            for linha in cursor.fetchall()
+        ]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+# =========================================================
+# MESTRE
+# =========================================================
+
+def jogador_eh_mestre(discord_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT eh_mestre
+            FROM jogadores
+            WHERE discord_id = %s;
+            """,
+            (discord_id,)
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            return False
+
+        return bool(resultado[0])
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def pode_acessar_personagem(discord_id, personagem_id):
+    personagem = buscar_personagem(
+        personagem_id
+    )
+
+    if personagem is None:
+        return False
+
+    if personagem["jogador_id"] == discord_id:
+        return True
+
+    return jogador_eh_mestre(
+        discord_id
+    )
+    # =========================================================
+# ALTERAR PV
+# =========================================================
+
+def alterar_pv(
+    personagem_id,
+    valor
+):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                pv_atual,
+                pv_maximo
+            FROM personagens
+            WHERE id = %s;
+            """,
+            (personagem_id,)
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            raise ValueError(
+                "Personagem não encontrado."
+            )
+
+        pv_atual = resultado[0]
+        pv_maximo = resultado[1]
+
+        novo_pv = pv_atual + valor
+
+        if novo_pv < 0:
+            novo_pv = 0
+
+        if novo_pv > pv_maximo:
+            novo_pv = pv_maximo
+
+        cursor.execute(
+            """
+            UPDATE personagens
+            SET pv_atual = %s
+            WHERE id = %s;
+            """,
+            (
+                novo_pv,
+                personagem_id
+            )
+        )
+
+        conexao.commit()
+
+        return {
+            "antes": pv_atual,
+            "depois": novo_pv,
+            "maximo": pv_maximo,
+        }
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+        # =========================================================
+# GERENCIAMENTO DE INVENTÁRIO
+# =========================================================
+
+def adicionar_item_inventario(
+    personagem_id,
+    nome,
+    quantidade=1
+):
+    if quantidade <= 0:
+        raise ValueError(
+            "A quantidade deve ser maior que zero."
+        )
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        # Procura equipamento oficial.
+        cursor.execute(
+            """
+            SELECT id
+            FROM equipamentos
+            WHERE LOWER(nome) = LOWER(%s);
+            """,
+            (nome,)
+        )
+
+        resultado = cursor.fetchone()
+
+        equipamento_id = (
+            resultado[0]
+            if resultado
+            else None
+        )
+
+        # Se já existe no inventário,
+        # soma a quantidade.
+        cursor.execute(
+            """
+            SELECT id, quantidade
+            FROM inventario_personagens
+            WHERE personagem_id = %s
+              AND LOWER(nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (
+                personagem_id,
+                nome
+            )
+        )
+
+        existente = cursor.fetchone()
+
+        if existente:
+
+            item_id = existente[0]
+
+            cursor.execute(
+                """
+                UPDATE inventario_personagens
+                SET quantidade =
+                    quantidade + %s
+                WHERE id = %s;
+                """,
+                (
+                    quantidade,
+                    item_id
+                )
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                INSERT INTO inventario_personagens (
+                    personagem_id,
+                    equipamento_id,
+                    nome,
+                    quantidade,
+                    equipado
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    %s,
+                    FALSE
+                );
+                """,
+                (
+                    personagem_id,
+                    equipamento_id,
+                    nome,
+                    quantidade
+                )
+            )
+
+        conexao.commit()
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def remover_item_inventario(
+    personagem_id,
+    nome,
+    quantidade=1
+):
+    if quantidade <= 0:
+        raise ValueError(
+            "A quantidade deve ser maior que zero."
+        )
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                id,
+                quantidade,
+                equipado
+            FROM inventario_personagens
+            WHERE personagem_id = %s
+              AND LOWER(nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (
+                personagem_id,
+                nome
+            )
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            raise ValueError(
+                "Esse item não está no inventário."
+            )
+
+        item_id = resultado[0]
+        quantidade_atual = resultado[1]
+
+        if quantidade >= quantidade_atual:
+
+            cursor.execute(
+                """
+                DELETE FROM inventario_personagens
+                WHERE id = %s;
+                """,
+                (item_id,)
+            )
+
+        else:
+
+            cursor.execute(
+                """
+                UPDATE inventario_personagens
+                SET quantidade =
+                    quantidade - %s
+                WHERE id = %s;
+                """,
+                (
+                    quantidade,
+                    item_id
+                )
+            )
+
+        conexao.commit()
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def alterar_equipado(
+    personagem_id,
+    nome,
+    equipado
+):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                i.id,
+                e.tipo
+            FROM inventario_personagens i
+            LEFT JOIN equipamentos e
+                ON e.id = i.equipamento_id
+            WHERE i.personagem_id = %s
+              AND LOWER(i.nome) = LOWER(%s)
+            LIMIT 1;
+            """,
+            (
+                personagem_id,
+                nome
+            )
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            raise ValueError(
+                "Item não encontrado no inventário."
+            )
+
+        item_id = resultado[0]
+        tipo = resultado[1]
+
+        if tipo not in (
+            "armadura",
+            "escudo",
+            "arma",
+            "foco",
+        ):
+            raise ValueError(
+                "Esse item não pode ser equipado."
+            )
+
+        # Só uma armadura por vez.
+        if equipado and tipo == "armadura":
+
+            cursor.execute(
+                """
+                UPDATE inventario_personagens
+                SET equipado = FALSE
+                WHERE personagem_id = %s
+                  AND equipamento_id IN (
+                      SELECT id
+                      FROM equipamentos
+                      WHERE tipo = 'armadura'
+                  );
+                """,
+                (personagem_id,)
+            )
+
+        cursor.execute(
+            """
+            UPDATE inventario_personagens
+            SET equipado = %s
+            WHERE id = %s;
+            """,
+            (
+                equipado,
+                item_id
+            )
+        )
+
+        conexao.commit()
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def recalcular_ca_personagem(
+    personagem_id
+):
+    personagem = buscar_personagem(
+        personagem_id
+    )
+
+    if personagem is None:
+        raise ValueError(
+            "Personagem não encontrado."
+        )
+
+    atributos = buscar_atributos_personagem(
+        personagem_id
+    )
+
+    return calcular_ca_personagem(
+        personagem_id,
+        personagem["classe"],
+        atributos
+    )
