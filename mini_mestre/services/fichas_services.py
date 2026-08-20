@@ -686,10 +686,14 @@ def criar_personagem(
             atributos["constituicao"]
         )
 
-        pv_maximo = max(
-            1,
-            classe["dado_vida"] + mod_con
+        pv_maximo = max(1,
+        classe["dado_vida"] + mod_con
         )
+
+        # Anão da Colina:
+        # Tenacidade Anã concede +1 PV por nível.
+        if subraca == "Anão da Colina":
+            pv_maximo += 1
 
         iniciativa = calcular_modificador(
             atributos["destreza"]

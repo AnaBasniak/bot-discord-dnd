@@ -2,6 +2,14 @@ from mini_mestre.database import conectar
 
 
 ESCOLHAS_RACAS = {
+    "Anão": [
+        (
+            "ferramenta_anao",
+            "Escolha uma proficiência com ferramenta de artesão",
+            1
+        ),
+    ],
+
     "Meio-Elfo": [
         (
             "atributo",
@@ -145,7 +153,9 @@ def popular_escolhas_raciais():
         )
 
         for nome_raca, escolhas in ESCOLHAS_RACAS.items():
+
             for tipo, titulo, quantidade in escolhas:
+
                 inserir_escolha_raca(
                     cursor,
                     nome_raca,
@@ -155,7 +165,9 @@ def popular_escolhas_raciais():
                 )
 
         for nome_subraca, escolhas in ESCOLHAS_SUBRACAS.items():
+
             for tipo, titulo, quantidade in escolhas:
+
                 inserir_escolha_subraca(
                     cursor,
                     nome_subraca,

@@ -74,8 +74,9 @@ SUBCLASSES = {
     ],
 
     "Patrulheiro": [
+        ("Conclave da Besta", 3),
         ("Conclave do Caçador", 3),
-        ("Conclave do Mestre das Bestas", 3),
+        ("Conclave do Rastreador Subterrâneo", 3),
     ],
 }
 
@@ -105,6 +106,15 @@ def popular_subclasses():
     cursor = conexao.cursor()
 
     try:
+        # Remove apenas subclasses antigas de Patrulheiro
+        # que não pertencem à versão usada pelo projeto.
+        cursor.execute(
+            """
+            DELETE FROM subclasses
+            WHERE nome = 'Conclave do Mestre das Bestas';
+            """
+        )
+
         for nome_classe, subclasses in SUBCLASSES.items():
 
             classe_id = buscar_classe(

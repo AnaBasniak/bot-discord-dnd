@@ -237,6 +237,7 @@ class NomePersonagemModal(
             "pericias_raciais": [],
             "pericias_classe": [],
             "pericias_antecedente": [],
+            "proficiencias_raciais": [],
 
             "rolagens": [],
 
@@ -807,7 +808,7 @@ async def tratar_escolhas_raciais_pericia(
 
     if quantidade <= 0:
 
-        await mostrar_pericias_classe(
+        await tratar_ferramenta_racial(
             interaction,
             user_id,
             estado
@@ -902,13 +903,136 @@ class EscolhaPericiasRaciaisView(
             self.select.values
         )
 
-        await mostrar_pericias_classe(
+        await tratar_ferramenta_racial(
             interaction,
             self.user_id,
             self.estado
         )
 
+# =========================================================
+# ESCOLHA DE FERRAMENTA RACIAL - ANÃO
+# =========================================================
 
+async def tratar_ferramenta_racial(
+    interaction,
+    user_id,
+    estado
+):
+    raca = estado[
+        "raca"
+    ]
+
+    subraca = estado[
+        "subraca"
+    ]
+
+    subraca_id = (
+        subraca["id"]
+        if subraca
+        else None
+    )
+
+    escolhas = listar_escolhas_raciais(
+        raca["id"],
+        subraca_id
+    )
+
+    possui_escolha = any(
+        item["tipo"] == "ferramenta_anao"
+        for item in escolhas
+    )
+
+    if not possui_escolha:
+
+        await mostrar_pericias_classe(
+            interaction,
+            user_id,
+            estado
+        )
+
+        return
+
+    view = EscolhaFerramentaAnaoView(
+        user_id,
+        estado
+    )
+
+    await mostrar_etapa(
+        interaction,
+        (
+            "🔨 Como Anão, escolha uma "
+            "proficiência com ferramenta de artesão:"
+        ),
+        view
+    )
+
+
+class EscolhaFerramentaAnaoView(
+    ViewDaFicha
+):
+
+    def __init__(
+        self,
+        user_id,
+        estado
+    ):
+        super().__init__(
+            user_id,
+            estado
+        )
+
+        self.select = discord.ui.Select(
+            placeholder="Escolha a ferramenta",
+            min_values=1,
+            max_values=1,
+            options=[
+                discord.SelectOption(
+                    label="Ferramentas de Ferreiro",
+                    value="Ferramentas de Ferreiro"
+                ),
+
+                discord.SelectOption(
+                    label="Suprimentos de Cervejeiro",
+                    value="Suprimentos de Cervejeiro"
+                ),
+
+                discord.SelectOption(
+                    label="Ferramentas de Pedreiro",
+                    value="Ferramentas de Pedreiro"
+                ),
+            ]
+        )
+
+        self.select.callback = (
+            self.escolher
+        )
+
+        self.add_item(
+            self.select
+        )
+
+    async def escolher(
+        self,
+        interaction
+    ):
+        ferramenta = (
+            self.select.values[0]
+        )
+
+        self.estado[
+            "proficiencias_raciais"
+        ].append(
+            {
+                "tipo": "ferramenta",
+                "nome": ferramenta,
+            }
+        )
+
+        await mostrar_pericias_classe(
+            interaction,
+            self.user_id,
+            self.estado
+        )
 # =========================================================
 # PERÍCIAS DA CLASSE
 # =========================================================
@@ -2041,6 +2165,10 @@ async def finalizar_ficha(
         )
     )
 
+    proficiencias += estado[
+    "proficiencias_raciais"
+    ]
+
     # =====================================================
     # JOGADOR
     # =====================================================
@@ -2078,8 +2206,10 @@ async def finalizar_ficha(
             antecedente=
                 antecedente["nome"],
 
-            deslocamento=
-                raca["deslocamento"],
+            deslocamento=(
+                35
+                if nome_subraca == "Elfo da Floresta"
+                else raca["deslocamento"]
 
             atributos=
                 estado[
