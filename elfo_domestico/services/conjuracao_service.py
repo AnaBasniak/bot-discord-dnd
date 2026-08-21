@@ -1,4 +1,4 @@
-from database.conexao import conectar
+from mini_mestre.database import conectar
 
 
 # =========================================================
@@ -334,12 +334,13 @@ def _conjurar_magia_racial(
     magia,
     regra_racial
 ):
-    # Truque racial ou magia racial sem limite de usos
-    # e sem utilização de slot.
+
     if (
         not regra_racial["usa_slot"]
-        and regra_racial["usos_maximos"] is None
+        and
+        regra_racial["usos_maximos"] is None
     ):
+
         return {
             "sucesso": True,
             "tipo": "racial_livre",
@@ -350,17 +351,19 @@ def _conjurar_magia_racial(
                 "Magia racial conjurada sem gastar slot.",
         }
 
-    # Magia racial com usos próprios.
     if (
         not regra_racial["usa_slot"]
-        and regra_racial["usos_maximos"] is not None
+        and
+        regra_racial["usos_maximos"] is not None
     ):
+
         resultado = gastar_uso_racial(
             personagem_id,
             magia["id"]
         )
 
         if resultado is None:
+
             return {
                 "sucesso": False,
                 "erro":
@@ -380,8 +383,6 @@ def _conjurar_magia_racial(
                 "Magia racial conjurada.",
         }
 
-    # Algumas regras raciais podem permitir
-    # utilização através dos slots normais.
     nivel_minimo = (
         regra_racial["nivel_conjuracao"]
         if regra_racial["nivel_conjuracao"] is not None
@@ -394,6 +395,7 @@ def _conjurar_magia_racial(
     )
 
     if nivel_slot is None:
+
         return {
             "sucesso": False,
             "erro":
@@ -407,6 +409,7 @@ def _conjurar_magia_racial(
     )
 
     if resultado is None:
+
         return {
             "sucesso": False,
             "erro":
@@ -437,11 +440,13 @@ def conjurar_magia(
     personagem_id,
     nome_magia
 ):
+
     personagem = buscar_personagem_conjuracao(
         personagem_id
     )
 
     if personagem is None:
+
         return {
             "sucesso": False,
             "erro": "Personagem não encontrado.",
@@ -453,22 +458,25 @@ def conjurar_magia(
     )
 
     if not magias:
+
         return {
             "sucesso": False,
             "erro":
                 "Essa magia não pertence ao personagem.",
         }
 
-    # -----------------------------------------------------
-    # PRIORIDADE PARA ORIGEM RACIAL
-    # -----------------------------------------------------
+    # =====================================================
+    # ORIGEM RACIAL TEM PRIORIDADE
+    # =====================================================
 
     for magia in magias:
 
         if (
             magia["origem"]
-            and magia["origem"].startswith("raca:")
+            and
+            magia["origem"].startswith("raca:")
         ):
+
             regra_racial = (
                 buscar_regra_magia_racial(
                     personagem_id,
@@ -477,48 +485,65 @@ def conjurar_magia(
             )
 
             if regra_racial is not None:
+
                 return _conjurar_magia_racial(
                     personagem_id,
                     magia,
                     regra_racial
                 )
 
-    # -----------------------------------------------------
+    # =====================================================
     # MAGIA DE CLASSE
-    # -----------------------------------------------------
+    # =====================================================
 
     magia = magias[0]
 
-    # Truques não gastam espaços.
     if magia["nivel"] == 0:
+
         return {
             "sucesso": True,
             "tipo": "truque",
             "magia": magia["nome"],
             "nivel_magia": 0,
             "mensagem":
-                "Truque conjurado sem gastar "
-                "espaço de magia.",
+                "Truque conjurado sem gastar slot.",
         }
 
-    # A magia precisa estar conhecida ou preparada.
-    if not (
-        magia["conhecida"]
-        or magia["preparada"]
-    ):
-        return {
-            "sucesso": False,
-            "erro":
-                "Essa magia não está conhecida "
-                "nem preparada.",
-        }
+    # =====================================================
+    # VERIFICAR PREPARAÇÃO / CONHECIMENTO
+    # =====================================================
 
-    # -----------------------------------------------------
+    classes_preparam = {
+        "Clérigo",
+        "Druida",
+        "Mago",
+        "Paladino",
+    }
+
+    if personagem["classe"] in classes_preparam:
+
+        if not magia["preparada"]:
+
+            return {
+                "sucesso": False,
+                "erro":
+                    "Essa magia não está preparada.",
+            }
+
+    else:
+
+        if not magia["conhecida"]:
+
+            return {
+                "sucesso": False,
+                "erro":
+                    "Essa magia não está conhecida.",
+            }
+
+    # =====================================================
     # BRUXO
-    # -----------------------------------------------------
+    # =====================================================
 
-    # Os slots cadastrados para Bruxo já representam
-    # os espaços de Magia de Pacto.
     if personagem["classe"] == "Bruxo":
 
         slots = listar_slots_disponiveis(
@@ -539,6 +564,7 @@ def conjurar_magia(
             break
 
         if slot_pacto is None:
+
             return {
                 "sucesso": False,
                 "erro":
@@ -552,6 +578,7 @@ def conjurar_magia(
         )
 
         if resultado is None:
+
             return {
                 "sucesso": False,
                 "erro":
@@ -572,9 +599,9 @@ def conjurar_magia(
                 "Magia de Pacto.",
         }
 
-    # -----------------------------------------------------
-    # DEMAIS CONJURADORES
-    # -----------------------------------------------------
+    # =====================================================
+    # DEMAIS CLASSES
+    # =====================================================
 
     nivel_slot = escolher_slot(
         personagem_id,
@@ -582,6 +609,7 @@ def conjurar_magia(
     )
 
     if nivel_slot is None:
+
         return {
             "sucesso": False,
             "erro":
@@ -595,6 +623,7 @@ def conjurar_magia(
     )
 
     if resultado is None:
+
         return {
             "sucesso": False,
             "erro":
@@ -620,10 +649,12 @@ def conjurar_magia(
 # =========================================================
 
 def recuperar_slots(personagem_id):
+
     conexao = conectar()
     cursor = conexao.cursor()
 
     try:
+
         cursor.execute(
             """
             UPDATE slots_magia_personagens
@@ -636,10 +667,12 @@ def recuperar_slots(personagem_id):
         conexao.commit()
 
     except Exception:
+
         conexao.rollback()
         raise
 
     finally:
+
         cursor.close()
         conexao.close()
 
@@ -652,11 +685,14 @@ def recuperar_usos_raciais(
     personagem_id,
     tipo_descanso
 ):
+
     conexao = conectar()
     cursor = conexao.cursor()
 
     try:
+
         if tipo_descanso == "curto":
+
             cursor.execute(
                 """
                 UPDATE magias_raciais_personagens
@@ -668,6 +704,7 @@ def recuperar_usos_raciais(
             )
 
         elif tipo_descanso == "longo":
+
             cursor.execute(
                 """
                 UPDATE magias_raciais_personagens
@@ -682,6 +719,7 @@ def recuperar_usos_raciais(
             )
 
         else:
+
             raise ValueError(
                 "Tipo de descanso inválido."
             )
@@ -689,10 +727,12 @@ def recuperar_usos_raciais(
         conexao.commit()
 
     except Exception:
+
         conexao.rollback()
         raise
 
     finally:
+
         cursor.close()
         conexao.close()
 
@@ -702,22 +742,28 @@ def recuperar_usos_raciais(
 # =========================================================
 
 def descanso_curto(personagem_id):
+
     personagem = buscar_personagem_conjuracao(
         personagem_id
     )
 
     if personagem is None:
+
         return {
             "sucesso": False,
-            "erro": "Personagem não encontrado.",
+            "erro":
+                "Personagem não encontrado.",
         }
 
-    # Bruxos recuperam os espaços de Magia de Pacto
-    # em descanso curto.
+    recuperou_slots = False
+
     if personagem["classe"] == "Bruxo":
+
         recuperar_slots(
             personagem_id
         )
+
+        recuperou_slots = True
 
     recuperar_usos_raciais(
         personagem_id,
@@ -726,9 +772,10 @@ def descanso_curto(personagem_id):
 
     return {
         "sucesso": True,
-        "classe": personagem["classe"],
+        "classe":
+            personagem["classe"],
         "recuperou_slots":
-            personagem["classe"] == "Bruxo",
+            recuperou_slots,
         "mensagem":
             "Descanso curto concluído.",
     }
@@ -739,18 +786,19 @@ def descanso_curto(personagem_id):
 # =========================================================
 
 def descanso_longo(personagem_id):
+
     personagem = buscar_personagem_conjuracao(
         personagem_id
     )
 
     if personagem is None:
+
         return {
             "sucesso": False,
-            "erro": "Personagem não encontrado.",
+            "erro":
+                "Personagem não encontrado.",
         }
 
-    # Todos os conjuradores recuperam seus espaços
-    # de magia após descanso longo.
     recuperar_slots(
         personagem_id
     )
@@ -762,8 +810,10 @@ def descanso_longo(personagem_id):
 
     return {
         "sucesso": True,
-        "classe": personagem["classe"],
-        "recuperou_slots": True,
+        "classe":
+            personagem["classe"],
+        "recuperou_slots":
+            True,
         "mensagem":
             "Descanso longo concluído.",
     }
