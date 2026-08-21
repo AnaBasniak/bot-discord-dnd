@@ -1,165 +1,252 @@
-from mini_mestre.data.popular_racas import popular_racas
-from mini_mestre.data.popular_subracas import popular_subracas
-from mini_mestre.data.popular_bonus_raciais import popular_bonus_raciais
+from mini_mestre.data.popular_racas import (
+    popular_racas,
+)
+
+from mini_mestre.data.popular_subracas import (
+    popular_subracas,
+)
+
+from mini_mestre.data.popular_bonus_raciais import (
+    popular_bonus_raciais,
+)
+
 from mini_mestre.data.popular_caracteristicas_raciais import (
     popular_caracteristicas_raciais,
 )
+
 from mini_mestre.data.popular_escolhas_raciais import (
     popular_escolhas_raciais,
 )
 
-from mini_mestre.data.popular_classes import popular_classes
-from mini_mestre.data.popular_dados_classes import (
-    popular_dados_classes,
+from mini_mestre.data.popular_classes import (
+    popular_classes,
 )
+
+from mini_mestre.data.popular_subclasses import (
+    popular_subclasses,
+)
+
+from mini_mestre.data.popular_salvaguardas_classes import (
+    popular_salvaguardas_classes,
+)
+
+from mini_mestre.data.popular_pericias_classes import (
+    popular_pericias_classes,
+)
+
 from mini_mestre.data.popular_proficiencias_classes import (
     popular_proficiencias_classes,
-)
-from mini_mestre.data.popular_subclasses import popular_subclasses
-from mini_mestre.data.popular_caracteristicas_classes import (
-    popular_caracteristicas_classes,
-)
-from mini_mestre.data.popular_caracteristicas_subclasses import (
-    popular_caracteristicas_subclasses,
 )
 
 from mini_mestre.data.popular_antecedentes import (
     popular_antecedentes,
 )
-from mini_mestre.data.popular_dados_antecedentes import (
-    popular_dados_antecedentes,
+
+from mini_mestre.data.popular_pericias_antecedentes import (
+    popular_pericias_antecedentes,
 )
-from mini_mestre.data.popular_caracteristicas_antecedentes import (
-    popular_caracteristicas_antecedentes,
+
+from mini_mestre.data.popular_proficiencias_antecedentes import (
+    popular_proficiencias_antecedentes,
 )
 
 from mini_mestre.data.popular_equipamentos import (
     popular_equipamentos,
 )
+
 from mini_mestre.data.popular_equipamentos_classes import (
     popular_equipamentos_classes,
 )
 
+from mini_mestre.data.popular_caracteristicas_classes import (
+    popular_caracteristicas_classes,
+)
 
-def executar_etapa(
-    numero,
-    nome,
-    funcao,
-):
-    print()
-    print(
-        "=" * 60
-    )
-    print(
-        f"[{numero}] {nome}"
-    )
-    print(
-        "=" * 60
-    )
+from mini_mestre.data.popular_magias import (
+    popular_magias,
+)
 
-    funcao()
+from mini_mestre.data.popular_magias_classes import (
+    popular_magias_classes,
+)
 
 
 def popular_tudo():
 
-    etapas = [
-        (
-            "Raças",
-            popular_racas,
-        ),
-        (
-            "Sub-raças",
-            popular_subracas,
-        ),
-        (
-            "Bônus raciais",
-            popular_bonus_raciais,
-        ),
-        (
-            "Características raciais",
-            popular_caracteristicas_raciais,
-        ),
-        (
-            "Escolhas raciais",
-            popular_escolhas_raciais,
-        ),
-
-        (
-            "Classes",
-            popular_classes,
-        ),
-        (
-            "Salvaguardas e perícias das classes",
-            popular_dados_classes,
-        ),
-        (
-            "Proficiências das classes",
-            popular_proficiencias_classes,
-        ),
-        (
-            "Subclasses",
-            popular_subclasses,
-        ),
-        (
-            "Progressão das classes",
-            popular_caracteristicas_classes,
-        ),
-        (
-            "Características das subclasses",
-            popular_caracteristicas_subclasses,
-        ),
-
-        (
-            "Antecedentes",
-            popular_antecedentes,
-        ),
-        (
-            "Dados dos antecedentes",
-            popular_dados_antecedentes,
-        ),
-        (
-            "Características dos antecedentes",
-            popular_caracteristicas_antecedentes,
-        ),
-
-        (
-            "Equipamentos",
-            popular_equipamentos,
-        ),
-        (
-            "Equipamentos das classes",
-            popular_equipamentos_classes,
-        ),
-    ]
-
-    print()
     print(
-        "Iniciando povoamento do banco do Mini Mestre..."
+        "\n=============================="
+    )
+    print(
+        "INICIANDO POPULAÇÃO DO BANCO"
+    )
+    print(
+        "=============================="
     )
 
-    for numero, etapa in enumerate(
-        etapas,
-        start=1
-    ):
+    # =====================================================
+    # RAÇAS
+    # =====================================================
 
-        nome = etapa[0]
-        funcao = etapa[1]
-
-        executar_etapa(
-            numero,
-            nome,
-            funcao,
-        )
-
-    print()
     print(
-        "=" * 60
+        "\n=== POPULANDO RAÇAS ==="
+    )
+
+    popular_racas()
+
+
+    print(
+        "\n=== POPULANDO SUB-RAÇAS ==="
+    )
+
+    popular_subracas()
+
+
+    print(
+        "\n=== POPULANDO BÔNUS RACIAIS ==="
+    )
+
+    popular_bonus_raciais()
+
+
+    print(
+        "\n=== POPULANDO CARACTERÍSTICAS RACIAIS ==="
+    )
+
+    popular_caracteristicas_raciais()
+
+
+    print(
+        "\n=== POPULANDO ESCOLHAS RACIAIS ==="
+    )
+
+    popular_escolhas_raciais()
+
+
+    # =====================================================
+    # CLASSES
+    # =====================================================
+
+    print(
+        "\n=== POPULANDO CLASSES ==="
+    )
+
+    popular_classes()
+
+
+    print(
+        "\n=== POPULANDO SUBCLASSES ==="
+    )
+
+    popular_subclasses()
+
+
+    print(
+        "\n=== POPULANDO SALVAGUARDAS DE CLASSE ==="
+    )
+
+    popular_salvaguardas_classes()
+
+
+    print(
+        "\n=== POPULANDO PERÍCIAS DE CLASSE ==="
+    )
+
+    popular_pericias_classes()
+
+
+    print(
+        "\n=== POPULANDO PROFICIÊNCIAS DE CLASSE ==="
+    )
+
+    popular_proficiencias_classes()
+
+
+    print(
+        "\n=== POPULANDO CARACTERÍSTICAS DE CLASSE ==="
+    )
+
+    popular_caracteristicas_classes()
+
+
+    # =====================================================
+    # ANTECEDENTES
+    # =====================================================
+
+    print(
+        "\n=== POPULANDO ANTECEDENTES ==="
+    )
+
+    popular_antecedentes()
+
+
+    print(
+        "\n=== POPULANDO PERÍCIAS DE ANTECEDENTES ==="
+    )
+
+    popular_pericias_antecedentes()
+
+
+    print(
+        "\n=== POPULANDO PROFICIÊNCIAS DE ANTECEDENTES ==="
+    )
+
+    popular_proficiencias_antecedentes()
+
+
+    # =====================================================
+    # EQUIPAMENTOS
+    # =====================================================
+
+    print(
+        "\n=== POPULANDO EQUIPAMENTOS ==="
+    )
+
+    popular_equipamentos()
+
+
+    print(
+        "\n=== POPULANDO EQUIPAMENTOS DE CLASSE ==="
+    )
+
+    popular_equipamentos_classes()
+
+
+    # =====================================================
+    # MAGIAS
+    # =====================================================
+
+    print(
+        "\n=== POPULANDO MAGIAS ==="
+    )
+
+    popular_magias()
+
+
+    print(
+        "\n=== ASSOCIANDO MAGIAS ÀS CLASSES ==="
+    )
+
+    popular_magias_classes()
+
+
+    print(
+        "\n=== POPULANDO SLOTS DE MAGIA ==="
+    )
+
+    popular_slots_magia()
+
+    # =====================================================
+    # FINAL
+    # =====================================================
+
+    print(
+        "\n=============================="
     )
     print(
         "BANCO POPULADO COM SUCESSO!"
     )
     print(
-        "=" * 60
+        "=============================="
     )
 
 
