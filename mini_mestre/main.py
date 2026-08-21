@@ -29,7 +29,6 @@ intents = discord.Intents.default()
 class MiniMestre(commands.Bot):
 
     def __init__(self):
-        
         super().__init__(
             command_prefix="!",
             intents=intents
@@ -38,31 +37,39 @@ class MiniMestre(commands.Bot):
     async def setup_hook(self):
 
         await self.load_extension(
-        "mini_mestre.cogs.fichas"
-     )
-
-        await self.load_extension(
-        "mini_mestre.cogs.consultar_ficha"
+            "mini_mestre.cogs.fichas"
         )
 
         await self.load_extension(
-        "mini_mestre.cogs.pv"
+            "mini_mestre.cogs.consultar_ficha"
         )
 
         await self.load_extension(
-        "mini_mestre.cogs.inventario"
-     )
+            "mini_mestre.cogs.pv"
+        )
 
         await self.load_extension(
-        "mini_mestre.cogs.bau"
+            "mini_mestre.cogs.inventario"
+        )
+
+        await self.load_extension(
+            "mini_mestre.cogs.bau"
         )
 
         comandos = await self.tree.sync()
 
         print(
-        f"{len(comandos)} comando(s) "
-        "sincronizado(s) com o Discord."
+            f"{len(comandos)} comando(s) "
+            "sincronizado(s) com o Discord."
         )
+
+
+# =========================================================
+# CRIAR BOT
+# =========================================================
+
+bot = MiniMestre()
+
 
 # =========================================================
 # EVENTOS
@@ -70,6 +77,7 @@ class MiniMestre(commands.Bot):
 
 @bot.event
 async def on_ready():
+
     print(
         f"Mini Mestre conectado como {bot.user}"
     )
@@ -83,7 +91,9 @@ async def on_ready():
     name="teste",
     description="Testa se o Mini Mestre está funcionando."
 )
-async def teste(interaction: discord.Interaction):
+async def teste(
+    interaction: discord.Interaction
+):
 
     await interaction.response.send_message(
         "Funcionando! O Mini Mestre está vivo!",
@@ -95,39 +105,54 @@ async def teste(interaction: discord.Interaction):
 # TESTE DO POSTGRESQL
 # =========================================================
 
-try:
-    conexao = psycopg2.connect(
-        host=os.getenv("DB_HOST"),
-        port=os.getenv("DB_PORT"),
-        database=os.getenv("DB_NAME"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD")
-    )
+def testar_postgresql():
 
-    print(
-        "Conexão com PostgreSQL realizada com sucesso!"
-    )
+    conexao = None
 
-    conexao.close()
+    try:
 
-except Exception as erro:
+        conexao = psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
 
-    print(
-        "Erro ao conectar ao PostgreSQL:"
-    )
+        print(
+            "Conexão com PostgreSQL realizada com sucesso!"
+        )
 
-    print(erro)
+    except Exception as erro:
+
+        print(
+            "Erro ao conectar ao PostgreSQL:"
+        )
+
+        print(
+            erro
+        )
+
+    finally:
+
+        if conexao is not None:
+            conexao.close()
 
 
 # =========================================================
 # INICIAR BOT
 # =========================================================
 
-if not TOKEN:
+if __name__ == "__main__":
 
-    raise RuntimeError(
-        "DISCORD_TOKEN não foi encontrado."
+    if not TOKEN:
+
+        raise RuntimeError(
+            "DISCORD_TOKEN não foi encontrado."
+        )
+
+    testar_postgresql()
+
+    bot.run(
+        TOKEN
     )
-
-
-bot.run(TOKEN)

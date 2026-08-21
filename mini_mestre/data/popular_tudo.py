@@ -26,28 +26,32 @@ from mini_mestre.data.popular_subclasses import (
     popular_subclasses,
 )
 
-from mini_mestre.data.popular_salvaguardas_classes import (
-    popular_salvaguardas_classes,
-)
-
-from mini_mestre.data.popular_pericias_classes import (
-    popular_pericias_classes,
+from mini_mestre.data.popular_dados_classes import (
+    popular_dados_classes,
 )
 
 from mini_mestre.data.popular_proficiencias_classes import (
     popular_proficiencias_classes,
 )
 
+from mini_mestre.data.popular_caracteristicas_classes import (
+    popular_caracteristicas_classes,
+)
+
+from mini_mestre.data.popular_caracteristicas_subclasses import (
+    popular_caracteristicas_subclasses,
+)
+
 from mini_mestre.data.popular_antecedentes import (
     popular_antecedentes,
 )
 
-from mini_mestre.data.popular_pericias_antecedentes import (
-    popular_pericias_antecedentes,
+from mini_mestre.data.popular_dados_antecedentes import (
+    popular_dados_antecedentes,
 )
 
-from mini_mestre.data.popular_proficiencias_antecedentes import (
-    popular_proficiencias_antecedentes,
+from mini_mestre.data.popular_caracteristicas_antecedentes import (
+    popular_caracteristicas_antecedentes,
 )
 
 from mini_mestre.data.popular_equipamentos import (
@@ -58,10 +62,6 @@ from mini_mestre.data.popular_equipamentos_classes import (
     popular_equipamentos_classes,
 )
 
-from mini_mestre.data.popular_caracteristicas_classes import (
-    popular_caracteristicas_classes,
-)
-
 from mini_mestre.data.popular_magias import (
     popular_magias,
 )
@@ -70,18 +70,25 @@ from mini_mestre.data.popular_magias_classes import (
     popular_magias_classes,
 )
 
+from mini_mestre.data.popular_slots_magia import (
+    popular_slots_magia,
+)
+
 
 def popular_tudo():
 
     print(
         "\n=============================="
     )
+
     print(
         "INICIANDO POPULAÇÃO DO BANCO"
     )
+
     print(
         "=============================="
     )
+
 
     # =====================================================
     # RAÇAS
@@ -141,31 +148,31 @@ def popular_tudo():
 
 
     print(
-        "\n=== POPULANDO SALVAGUARDAS DE CLASSE ==="
+        "\n=== POPULANDO DADOS DAS CLASSES ==="
     )
 
-    popular_salvaguardas_classes()
+    popular_dados_classes()
 
 
     print(
-        "\n=== POPULANDO PERÍCIAS DE CLASSE ==="
-    )
-
-    popular_pericias_classes()
-
-
-    print(
-        "\n=== POPULANDO PROFICIÊNCIAS DE CLASSE ==="
+        "\n=== POPULANDO PROFICIÊNCIAS DAS CLASSES ==="
     )
 
     popular_proficiencias_classes()
 
 
     print(
-        "\n=== POPULANDO CARACTERÍSTICAS DE CLASSE ==="
+        "\n=== POPULANDO CARACTERÍSTICAS DAS CLASSES ==="
     )
 
     popular_caracteristicas_classes()
+
+
+    print(
+        "\n=== POPULANDO CARACTERÍSTICAS DAS SUBCLASSES ==="
+    )
+
+    popular_caracteristicas_subclasses()
 
 
     # =====================================================
@@ -180,17 +187,17 @@ def popular_tudo():
 
 
     print(
-        "\n=== POPULANDO PERÍCIAS DE ANTECEDENTES ==="
+        "\n=== POPULANDO DADOS DOS ANTECEDENTES ==="
     )
 
-    popular_pericias_antecedentes()
+    popular_dados_antecedentes()
 
 
     print(
-        "\n=== POPULANDO PROFICIÊNCIAS DE ANTECEDENTES ==="
+        "\n=== POPULANDO CARACTERÍSTICAS DOS ANTECEDENTES ==="
     )
 
-    popular_proficiencias_antecedentes()
+    popular_caracteristicas_antecedentes()
 
 
     # =====================================================
@@ -205,7 +212,7 @@ def popular_tudo():
 
 
     print(
-        "\n=== POPULANDO EQUIPAMENTOS DE CLASSE ==="
+        "\n=== POPULANDO EQUIPAMENTOS DAS CLASSES ==="
     )
 
     popular_equipamentos_classes()
@@ -235,6 +242,7 @@ def popular_tudo():
 
     popular_slots_magia()
 
+
     # =====================================================
     # FINAL
     # =====================================================
@@ -242,9 +250,11 @@ def popular_tudo():
     print(
         "\n=============================="
     )
+
     print(
         "BANCO POPULADO COM SUCESSO!"
     )
+
     print(
         "=============================="
     )

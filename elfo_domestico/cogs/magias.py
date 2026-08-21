@@ -21,6 +21,7 @@ from elfo_domestico.services.regras_magia_service import (
     validar_nova_magia_conhecida,
     validar_novo_truque,
     validar_preparar_magia,
+    validar_segredo_magico,
 )
 
 from elfo_domestico.services.conjuracao_service import (
@@ -608,6 +609,110 @@ class MagiasCog(commands.Cog):
             (
                 f"✨ **{dados_magia['nome']}** "
                 f"foi adicionada a **{ficha['nome']}**."
+            ),
+            ephemeral=True
+        )
+
+
+
+    # =====================================================
+    # /SEGREDO_MAGICO
+    # =====================================================
+
+    @app_commands.command(
+        name="segredo_magico",
+        description=(
+            "Escolhe uma magia de qualquer classe "
+            "como Segredo Mágico do Bardo."
+        )
+    )
+    @app_commands.describe(
+        personagem="Nome do personagem",
+        magia="Nome da magia escolhida"
+    )
+    async def segredo_magico(
+        self,
+        interaction: discord.Interaction,
+        personagem: str,
+        magia: str
+    ):
+
+        ficha = buscar_personagem(
+            interaction.user.id,
+            personagem
+        )
+
+        if ficha is None:
+
+            await interaction.response.send_message(
+                "❌ Personagem não encontrado.",
+                ephemeral=True
+            )
+
+            return
+
+        dados_magia = buscar_magia(
+            magia
+        )
+
+        if dados_magia is None:
+
+            await interaction.response.send_message(
+                "❌ Magia não encontrada no catálogo.",
+                ephemeral=True
+            )
+
+            return
+
+        magias_personagem = listar_magias_personagem(
+            ficha["id"]
+        )
+
+        for magia_personagem in magias_personagem:
+
+            if (
+                magia_personagem["id"]
+                == dados_magia["id"]
+            ):
+
+                await interaction.response.send_message(
+                    (
+                        f"📖 **{ficha['nome']}** já possui "
+                        f"**{dados_magia['nome']}**."
+                    ),
+                    ephemeral=True
+                )
+
+                return
+
+        validacao = validar_segredo_magico(
+            personagem_id=ficha["id"],
+            classe=ficha["classe"],
+            nivel_personagem=ficha["nivel"],
+            nivel_magia=dados_magia["nivel"],
+        )
+
+        if not validacao["permitido"]:
+
+            await interaction.response.send_message(
+                "❌ " + validacao["motivo"],
+                ephemeral=True
+            )
+
+            return
+
+        adicionar_magia_personagem(
+            personagem_id=ficha["id"],
+            magia_id=dados_magia["id"],
+            preparada=False,
+            origem="segredo_magico",
+        )
+
+        await interaction.response.send_message(
+            (
+                f"🎵 **{dados_magia['nome']}** foi escolhida "
+                f"como Segredo Mágico de "
+                f"**{ficha['nome']}**."
             ),
             ephemeral=True
         )

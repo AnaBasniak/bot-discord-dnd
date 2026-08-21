@@ -1,4 +1,3 @@
-
 from mini_mestre.database import conectar
 
 
@@ -332,6 +331,177 @@ MAGIAS_CONHECIDAS = {
         20: 11,
     },
 }
+
+# =========================================================
+# BARDO - SEGREDOS MÁGICOS
+# =========================================================
+
+def limite_segredos_magicos(nivel):
+    """
+    Segredos Mágicos da classe Bardo.
+
+    Nível 10:
+        2 magias
+
+    Nível 14:
+        +2 magias
+
+    Nível 18:
+        +2 magias
+
+    Essas magias contam no total normal de
+    magias conhecidas do Bardo.
+    """
+
+    if nivel >= 18:
+        return 6
+
+    if nivel >= 14:
+        return 4
+
+    if nivel >= 10:
+        return 2
+
+    return 0
+
+
+def contar_segredos_magicos(personagem_id):
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM magias_personagens
+            WHERE personagem_id = %s
+              AND origem = 'segredo_magico';
+            """,
+            (personagem_id,)
+        )
+
+        return cursor.fetchone()[0]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def validar_segredo_magico(
+    personagem_id,
+    classe,
+    nivel_personagem,
+    nivel_magia
+):
+    """
+    Valida um Segredo Mágico normal do Bardo.
+
+    Regras:
+    - apenas Bardo;
+    - disponível a partir do nível 10;
+    - 2 escolhas no nível 10;
+    - 4 escolhas no nível 14;
+    - 6 escolhas no nível 18;
+    - pode escolher magia de qualquer classe;
+    - pode escolher truque;
+    - deve respeitar o nível de magia que o Bardo
+      consegue conjurar;
+    - Segredos Mágicos normais contam dentro do
+      total de magias conhecidas do Bardo.
+    """
+
+    if classe != "Bardo":
+        return {
+            "permitido": False,
+            "motivo":
+                "Apenas Bardos possuem Segredos Mágicos.",
+        }
+
+    limite_segredos = limite_segredos_magicos(
+        nivel_personagem
+    )
+
+    if limite_segredos == 0:
+        return {
+            "permitido": False,
+            "motivo":
+                "O Bardo ainda não possui "
+                "Segredos Mágicos.",
+        }
+
+    atuais_segredos = contar_segredos_magicos(
+        personagem_id
+    )
+
+    if atuais_segredos >= limite_segredos:
+        return {
+            "permitido": False,
+            "motivo":
+                "Você já escolheu todos os Segredos "
+                "Mágicos disponíveis nesse nível.",
+        }
+
+    if nivel_magia > 0:
+        if not pode_acessar_nivel_magia(
+            "Bardo",
+            nivel_personagem,
+            nivel_magia
+        ):
+            return {
+                "permitido": False,
+                "motivo":
+                    "O Bardo ainda não consegue "
+                    "conjurar magias desse nível.",
+            }
+
+    limite_total = limite_magias_conhecidas(
+        "Bardo",
+        nivel_personagem
+    )
+
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT COUNT(*)
+            FROM magias_personagens mp
+            JOIN magias m
+                ON m.id = mp.magia_id
+            WHERE mp.personagem_id = %s
+              AND m.nivel >= 1
+              AND mp.origem IN (
+                  'classe',
+                  'segredo_magico'
+              );
+            """,
+            (personagem_id,)
+        )
+
+        magias_niveladas = cursor.fetchone()[0]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+    if (
+        nivel_magia >= 1
+        and
+        magias_niveladas >= limite_total
+    ):
+        return {
+            "permitido": False,
+            "motivo":
+                "Você já atingiu o número máximo "
+                "de magias conhecidas do Bardo "
+                "para esse nível.",
+        }
+
+    return {
+        "permitido": True,
+        "motivo": None,
+    }
 
 
 # =========================================================
