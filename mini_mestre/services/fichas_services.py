@@ -1,4 +1,5 @@
 from mini_mestre.database import conectar
+from mini_mestre.data.magias_raciais import MAGIAS_RACIAIS
 
 
 # =========================================================
@@ -686,8 +687,9 @@ def criar_personagem(
             atributos["constituicao"]
         )
 
-        pv_maximo = max(1,
-        classe["dado_vida"] + mod_con
+        pv_maximo = max(
+            1,
+            classe["dado_vida"] + mod_con
         )
 
         # Anão da Colina:
@@ -870,6 +872,435 @@ def criar_personagem(
         cursor.close()
         conexao.close()
 
+
+
+# =========================================================
+# MAGIAS - INTEGRAÇÃO COM PERSONAGEM
+# =========================================================
+
+def listar_truques_mago():
+    """
+    Retorna os truques (nível 0) disponíveis para Mago.
+    Usado pela escolha racial do Alto Elfo.
+    """
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                m.id,
+                m.nome,
+                m.escola
+            FROM magias m
+            JOIN magias_classes mc
+                ON mc.magia_id = m.id
+            JOIN classes c
+                ON c.id = mc.classe_id
+            WHERE c.nome = 'Mago'
+              AND m.nivel = 0
+            ORDER BY m.nome;
+            """
+        )
+
+        return [
+            {
+                "id": linha[0],
+                "nome": linha[1],
+                "escola": linha[2],
+            }
+            for linha in cursor.fetchall()
+        ]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def _buscar_magia_id_cursor(
+    cursor,
+    nome_magia
+):
+    cursor.execute(
+        """
+        SELECT id
+        FROM magias
+        WHERE LOWER(nome) = LOWER(%s);
+        """,
+        (nome_magia,)
+    )
+
+    resultado = cursor.fetchone()
+
+    if resultado is None:
+        raise ValueError(
+            f"Magia não encontrada no banco: {nome_magia}"
+        )
+
+    return resultado[0]
+
+
+def _registrar_magia_racial_cursor(
+    cursor,
+    personagem_id,
+    nome_magia,
+    origem,
+    habilidade_conjuracao,
+    nivel_desbloqueio,
+    usa_slot=False,
+    usos_maximos=None,
+    descanso_recuperacao=None,
+    nivel_conjuracao=None,
+):
+    magia_id = _buscar_magia_id_cursor(
+        cursor,
+        nome_magia
+    )
+
+    origem_banco = (
+        f"raca:{origem}"
+    )
+
+    # Guarda a magia também na lista geral do personagem.
+    cursor.execute(
+        """
+        INSERT INTO magias_personagens (
+            personagem_id,
+            magia_id,
+            conhecida,
+            preparada,
+            origem
+        )
+        VALUES (
+            %s,
+            %s,
+            TRUE,
+            FALSE,
+            %s
+        )
+        ON CONFLICT (
+            personagem_id,
+            magia_id,
+            origem
+        )
+        DO UPDATE SET
+            conhecida = TRUE;
+        """,
+        (
+            personagem_id,
+            magia_id,
+            origem_banco,
+        )
+    )
+
+    # Guarda as regras próprias do traço racial.
+    cursor.execute(
+        """
+        INSERT INTO magias_raciais_personagens (
+            personagem_id,
+            magia_id,
+            origem,
+            habilidade_conjuracao,
+            nivel_desbloqueio,
+            usa_slot,
+            usos_maximos,
+            usos_gastos,
+            descanso_recuperacao,
+            nivel_conjuracao
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            0,
+            %s,
+            %s
+        )
+        ON CONFLICT (
+            personagem_id,
+            magia_id,
+            origem
+        )
+        DO UPDATE SET
+            habilidade_conjuracao =
+                EXCLUDED.habilidade_conjuracao,
+            nivel_desbloqueio =
+                EXCLUDED.nivel_desbloqueio,
+            usa_slot =
+                EXCLUDED.usa_slot,
+            usos_maximos =
+                EXCLUDED.usos_maximos,
+            descanso_recuperacao =
+                EXCLUDED.descanso_recuperacao,
+            nivel_conjuracao =
+                EXCLUDED.nivel_conjuracao;
+        """,
+        (
+            personagem_id,
+            magia_id,
+            origem,
+            habilidade_conjuracao,
+            nivel_desbloqueio,
+            usa_slot,
+            usos_maximos,
+            descanso_recuperacao,
+            nivel_conjuracao,
+        )
+    )
+
+
+def sincronizar_slots_personagem(
+    personagem_id,
+    classe_nome,
+    nivel_personagem
+):
+    """
+    Copia para o personagem os espaços previstos em
+    slots_magia_classes para a classe e o nível informados.
+
+    Também funciona para Bruxo, pois a progressão de Pacto
+    está cadastrada nessa tabela com o nível único do espaço.
+    A recuperação curta/longa será tratada pelo Elfo Doméstico.
+    """
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT id
+            FROM classes
+            WHERE nome = %s;
+            """,
+            (classe_nome,)
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            raise ValueError(
+                f"Classe não encontrada: {classe_nome}"
+            )
+
+        classe_id = resultado[0]
+
+        cursor.execute(
+            """
+            SELECT
+                nivel_magia,
+                quantidade
+            FROM slots_magia_classes
+            WHERE classe_id = %s
+              AND nivel_classe = %s
+            ORDER BY nivel_magia;
+            """,
+            (
+                classe_id,
+                nivel_personagem,
+            )
+        )
+
+        progressao = cursor.fetchall()
+
+        # Remove níveis que deixaram de existir na progressão
+        # atual e recria/atualiza os que são válidos.
+        cursor.execute(
+            """
+            DELETE FROM slots_magia_personagens
+            WHERE personagem_id = %s;
+            """,
+            (personagem_id,)
+        )
+
+        for nivel_magia, quantidade in progressao:
+            cursor.execute(
+                """
+                INSERT INTO slots_magia_personagens (
+                    personagem_id,
+                    nivel_slot,
+                    total,
+                    usados
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    0
+                );
+                """,
+                (
+                    personagem_id,
+                    nivel_magia,
+                    quantidade,
+                )
+            )
+
+        conexao.commit()
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def registrar_magias_raciais_personagem(
+    personagem_id,
+    raca_nome,
+    subraca_nome,
+    nivel_personagem=1,
+    truque_alto_elfo=None,
+):
+    """
+    Registra as magias raciais já desbloqueadas no nível atual.
+
+    Casos fixos:
+    - Drow
+    - Tiefling
+    - Gnomo da Floresta
+
+    Caso de escolha:
+    - Alto Elfo
+    """
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        # Primeiro verifica a sub-raça, depois a raça.
+        chave = None
+
+        if (
+            subraca_nome
+            and subraca_nome in MAGIAS_RACIAIS
+        ):
+            chave = subraca_nome
+
+        elif raca_nome in MAGIAS_RACIAIS:
+            chave = raca_nome
+
+        if chave is not None:
+            for regra in MAGIAS_RACIAIS[chave]:
+
+                if (
+                    regra["nivel_personagem"]
+                    > nivel_personagem
+                ):
+                    continue
+
+                _registrar_magia_racial_cursor(
+                    cursor=cursor,
+                    personagem_id=personagem_id,
+                    nome_magia=regra["nome"],
+                    origem=chave,
+                    habilidade_conjuracao=
+                        regra["habilidade"],
+                    nivel_desbloqueio=
+                        regra["nivel_personagem"],
+                    usa_slot=
+                        regra.get(
+                            "usa_slot",
+                            False
+                        ),
+                    usos_maximos=
+                        regra.get("usos"),
+                    descanso_recuperacao=
+                        regra.get("descanso"),
+                    nivel_conjuracao=
+                        regra.get(
+                            "nivel_conjuracao"
+                        ),
+                )
+
+        # Alto Elfo escolhe um truque da lista de Mago.
+        if subraca_nome == "Alto Elfo":
+
+            if not truque_alto_elfo:
+                raise ValueError(
+                    "O Alto Elfo precisa escolher "
+                    "um truque da lista de Mago."
+                )
+
+            cursor.execute(
+                """
+                SELECT
+                    m.id
+                FROM magias m
+                JOIN magias_classes mc
+                    ON mc.magia_id = m.id
+                JOIN classes c
+                    ON c.id = mc.classe_id
+                WHERE LOWER(m.nome) = LOWER(%s)
+                  AND m.nivel = 0
+                  AND c.nome = 'Mago';
+                """,
+                (truque_alto_elfo,)
+            )
+
+            if cursor.fetchone() is None:
+                raise ValueError(
+                    "O truque escolhido pelo Alto Elfo "
+                    "não pertence à lista de Mago."
+                )
+
+            _registrar_magia_racial_cursor(
+                cursor=cursor,
+                personagem_id=personagem_id,
+                nome_magia=truque_alto_elfo,
+                origem="Alto Elfo",
+                habilidade_conjuracao="inteligencia",
+                nivel_desbloqueio=1,
+                usa_slot=False,
+                usos_maximos=None,
+                descanso_recuperacao=None,
+                nivel_conjuracao=0,
+            )
+
+        conexao.commit()
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def inicializar_sistema_magico_personagem(
+    personagem_id,
+    classe_nome,
+    raca_nome,
+    subraca_nome,
+    nivel_personagem=1,
+    truque_alto_elfo=None,
+):
+    """
+    Inicializa a parte mágica da ficha sem escolher
+    magias de classe.
+
+    As magias de classe serão gerenciadas pelo
+    Elfo Doméstico.
+    """
+    sincronizar_slots_personagem(
+        personagem_id,
+        classe_nome,
+        nivel_personagem
+    )
+
+    registrar_magias_raciais_personagem(
+        personagem_id=personagem_id,
+        raca_nome=raca_nome,
+        subraca_nome=subraca_nome,
+        nivel_personagem=nivel_personagem,
+        truque_alto_elfo=truque_alto_elfo,
+    )
 
 # =========================================================
 # INVENTÁRIO
@@ -1394,6 +1825,435 @@ def buscar_proficiencias_personagem(personagem_id):
         cursor.close()
         conexao.close()
 
+
+
+# =========================================================
+# MAGIAS - INTEGRAÇÃO COM PERSONAGEM
+# =========================================================
+
+def listar_truques_mago():
+    """
+    Retorna os truques (nível 0) disponíveis para Mago.
+    Usado pela escolha racial do Alto Elfo.
+    """
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT
+                m.id,
+                m.nome,
+                m.escola
+            FROM magias m
+            JOIN magias_classes mc
+                ON mc.magia_id = m.id
+            JOIN classes c
+                ON c.id = mc.classe_id
+            WHERE c.nome = 'Mago'
+              AND m.nivel = 0
+            ORDER BY m.nome;
+            """
+        )
+
+        return [
+            {
+                "id": linha[0],
+                "nome": linha[1],
+                "escola": linha[2],
+            }
+            for linha in cursor.fetchall()
+        ]
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def _buscar_magia_id_cursor(
+    cursor,
+    nome_magia
+):
+    cursor.execute(
+        """
+        SELECT id
+        FROM magias
+        WHERE LOWER(nome) = LOWER(%s);
+        """,
+        (nome_magia,)
+    )
+
+    resultado = cursor.fetchone()
+
+    if resultado is None:
+        raise ValueError(
+            f"Magia não encontrada no banco: {nome_magia}"
+        )
+
+    return resultado[0]
+
+
+def _registrar_magia_racial_cursor(
+    cursor,
+    personagem_id,
+    nome_magia,
+    origem,
+    habilidade_conjuracao,
+    nivel_desbloqueio,
+    usa_slot=False,
+    usos_maximos=None,
+    descanso_recuperacao=None,
+    nivel_conjuracao=None,
+):
+    magia_id = _buscar_magia_id_cursor(
+        cursor,
+        nome_magia
+    )
+
+    origem_banco = (
+        f"raca:{origem}"
+    )
+
+    # Guarda a magia também na lista geral do personagem.
+    cursor.execute(
+        """
+        INSERT INTO magias_personagens (
+            personagem_id,
+            magia_id,
+            conhecida,
+            preparada,
+            origem
+        )
+        VALUES (
+            %s,
+            %s,
+            TRUE,
+            FALSE,
+            %s
+        )
+        ON CONFLICT (
+            personagem_id,
+            magia_id,
+            origem
+        )
+        DO UPDATE SET
+            conhecida = TRUE;
+        """,
+        (
+            personagem_id,
+            magia_id,
+            origem_banco,
+        )
+    )
+
+    # Guarda as regras próprias do traço racial.
+    cursor.execute(
+        """
+        INSERT INTO magias_raciais_personagens (
+            personagem_id,
+            magia_id,
+            origem,
+            habilidade_conjuracao,
+            nivel_desbloqueio,
+            usa_slot,
+            usos_maximos,
+            usos_gastos,
+            descanso_recuperacao,
+            nivel_conjuracao
+        )
+        VALUES (
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            %s,
+            0,
+            %s,
+            %s
+        )
+        ON CONFLICT (
+            personagem_id,
+            magia_id,
+            origem
+        )
+        DO UPDATE SET
+            habilidade_conjuracao =
+                EXCLUDED.habilidade_conjuracao,
+            nivel_desbloqueio =
+                EXCLUDED.nivel_desbloqueio,
+            usa_slot =
+                EXCLUDED.usa_slot,
+            usos_maximos =
+                EXCLUDED.usos_maximos,
+            descanso_recuperacao =
+                EXCLUDED.descanso_recuperacao,
+            nivel_conjuracao =
+                EXCLUDED.nivel_conjuracao;
+        """,
+        (
+            personagem_id,
+            magia_id,
+            origem,
+            habilidade_conjuracao,
+            nivel_desbloqueio,
+            usa_slot,
+            usos_maximos,
+            descanso_recuperacao,
+            nivel_conjuracao,
+        )
+    )
+
+
+def sincronizar_slots_personagem(
+    personagem_id,
+    classe_nome,
+    nivel_personagem
+):
+    """
+    Copia para o personagem os espaços previstos em
+    slots_magia_classes para a classe e o nível informados.
+
+    Também funciona para Bruxo, pois a progressão de Pacto
+    está cadastrada nessa tabela com o nível único do espaço.
+    A recuperação curta/longa será tratada pelo Elfo Doméstico.
+    """
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        cursor.execute(
+            """
+            SELECT id
+            FROM classes
+            WHERE nome = %s;
+            """,
+            (classe_nome,)
+        )
+
+        resultado = cursor.fetchone()
+
+        if resultado is None:
+            raise ValueError(
+                f"Classe não encontrada: {classe_nome}"
+            )
+
+        classe_id = resultado[0]
+
+        cursor.execute(
+            """
+            SELECT
+                nivel_magia,
+                quantidade
+            FROM slots_magia_classes
+            WHERE classe_id = %s
+              AND nivel_classe = %s
+            ORDER BY nivel_magia;
+            """,
+            (
+                classe_id,
+                nivel_personagem,
+            )
+        )
+
+        progressao = cursor.fetchall()
+
+        # Remove níveis que deixaram de existir na progressão
+        # atual e recria/atualiza os que são válidos.
+        cursor.execute(
+            """
+            DELETE FROM slots_magia_personagens
+            WHERE personagem_id = %s;
+            """,
+            (personagem_id,)
+        )
+
+        for nivel_magia, quantidade in progressao:
+            cursor.execute(
+                """
+                INSERT INTO slots_magia_personagens (
+                    personagem_id,
+                    nivel_slot,
+                    total,
+                    usados
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    %s,
+                    0
+                );
+                """,
+                (
+                    personagem_id,
+                    nivel_magia,
+                    quantidade,
+                )
+            )
+
+        conexao.commit()
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def registrar_magias_raciais_personagem(
+    personagem_id,
+    raca_nome,
+    subraca_nome,
+    nivel_personagem=1,
+    truque_alto_elfo=None,
+):
+    """
+    Registra as magias raciais já desbloqueadas no nível atual.
+
+    Casos fixos:
+    - Drow
+    - Tiefling
+    - Gnomo da Floresta
+
+    Caso de escolha:
+    - Alto Elfo
+    """
+    conexao = conectar()
+    cursor = conexao.cursor()
+
+    try:
+        # Primeiro verifica a sub-raça, depois a raça.
+        chave = None
+
+        if (
+            subraca_nome
+            and subraca_nome in MAGIAS_RACIAIS
+        ):
+            chave = subraca_nome
+
+        elif raca_nome in MAGIAS_RACIAIS:
+            chave = raca_nome
+
+        if chave is not None:
+            for regra in MAGIAS_RACIAIS[chave]:
+
+                if (
+                    regra["nivel_personagem"]
+                    > nivel_personagem
+                ):
+                    continue
+
+                _registrar_magia_racial_cursor(
+                    cursor=cursor,
+                    personagem_id=personagem_id,
+                    nome_magia=regra["nome"],
+                    origem=chave,
+                    habilidade_conjuracao=
+                        regra["habilidade"],
+                    nivel_desbloqueio=
+                        regra["nivel_personagem"],
+                    usa_slot=
+                        regra.get(
+                            "usa_slot",
+                            False
+                        ),
+                    usos_maximos=
+                        regra.get("usos"),
+                    descanso_recuperacao=
+                        regra.get("descanso"),
+                    nivel_conjuracao=
+                        regra.get(
+                            "nivel_conjuracao"
+                        ),
+                )
+
+        # Alto Elfo escolhe um truque da lista de Mago.
+        if subraca_nome == "Alto Elfo":
+
+            if not truque_alto_elfo:
+                raise ValueError(
+                    "O Alto Elfo precisa escolher "
+                    "um truque da lista de Mago."
+                )
+
+            cursor.execute(
+                """
+                SELECT
+                    m.id
+                FROM magias m
+                JOIN magias_classes mc
+                    ON mc.magia_id = m.id
+                JOIN classes c
+                    ON c.id = mc.classe_id
+                WHERE LOWER(m.nome) = LOWER(%s)
+                  AND m.nivel = 0
+                  AND c.nome = 'Mago';
+                """,
+                (truque_alto_elfo,)
+            )
+
+            if cursor.fetchone() is None:
+                raise ValueError(
+                    "O truque escolhido pelo Alto Elfo "
+                    "não pertence à lista de Mago."
+                )
+
+            _registrar_magia_racial_cursor(
+                cursor=cursor,
+                personagem_id=personagem_id,
+                nome_magia=truque_alto_elfo,
+                origem="Alto Elfo",
+                habilidade_conjuracao="inteligencia",
+                nivel_desbloqueio=1,
+                usa_slot=False,
+                usos_maximos=None,
+                descanso_recuperacao=None,
+                nivel_conjuracao=0,
+            )
+
+        conexao.commit()
+
+    except Exception:
+        conexao.rollback()
+        raise
+
+    finally:
+        cursor.close()
+        conexao.close()
+
+
+def inicializar_sistema_magico_personagem(
+    personagem_id,
+    classe_nome,
+    raca_nome,
+    subraca_nome,
+    nivel_personagem=1,
+    truque_alto_elfo=None,
+):
+    """
+    Inicializa a parte mágica da ficha sem escolher
+    magias de classe.
+
+    As magias de classe serão gerenciadas pelo
+    Elfo Doméstico.
+    """
+    sincronizar_slots_personagem(
+        personagem_id,
+        classe_nome,
+        nivel_personagem
+    )
+
+    registrar_magias_raciais_personagem(
+        personagem_id=personagem_id,
+        raca_nome=raca_nome,
+        subraca_nome=subraca_nome,
+        nivel_personagem=nivel_personagem,
+        truque_alto_elfo=truque_alto_elfo,
+    )
 
 # =========================================================
 # INVENTÁRIO

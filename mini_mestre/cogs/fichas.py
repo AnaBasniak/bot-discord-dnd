@@ -23,8 +23,10 @@ from mini_mestre.services.ficha_service import (
     listar_racas,
     listar_salvaguardas_classe,
     listar_subclasses,
+    listar_truques_mago,
     listar_subracas,
     salvar_inventario,
+    inicializar_sistema_magico_personagem,
 )
 
 
@@ -245,6 +247,8 @@ class NomePersonagemModal(
             "atributos_finais": {},
 
             "escolhas_atributos_raciais": [],
+
+            "truque_alto_elfo": None,
 
             "equipamentos_escolhidos": [],
 
@@ -1601,8 +1605,9 @@ async def iniciar_equipamentos(
 
     if not escolhas:
 
-        await finalizar_ficha(
+        await tratar_truque_alto_elfo(
             interaction,
+            user_id,
             estado
         )
 
@@ -1630,8 +1635,9 @@ async def mostrar_proxima_escolha_equipamento(
 
     if indice >= len(escolhas):
 
-        await finalizar_ficha(
+        await tratar_truque_alto_elfo(
             interaction,
+            user_id,
             estado
         )
 
@@ -2075,6 +2081,124 @@ class EscolhaCategoriaEquipamentoView(
         )
 
 
+
+# =========================================================
+# TRUQUE RACIAL - ALTO ELFO
+# =========================================================
+
+async def tratar_truque_alto_elfo(
+    interaction,
+    user_id,
+    estado
+):
+    subraca = estado[
+        "subraca"
+    ]
+
+    nome_subraca = (
+        subraca["nome"]
+        if subraca
+        else None
+    )
+
+    if nome_subraca != "Alto Elfo":
+
+        await finalizar_ficha(
+            interaction,
+            estado
+        )
+
+        return
+
+    truques = listar_truques_mago()
+
+    if not truques:
+
+        await mostrar_erro(
+            interaction,
+            (
+                "Nenhum truque de Mago foi "
+                "encontrado no banco. Rode os "
+                "populadores de magias primeiro."
+            )
+        )
+
+        return
+
+    view = EscolhaTruqueAltoElfoView(
+        user_id,
+        estado,
+        truques
+    )
+
+    await mostrar_etapa(
+        interaction,
+        (
+            "✨ Como **Alto Elfo**, escolha "
+            "**1 truque da lista de Mago**.\n\n"
+            "Inteligência será a habilidade "
+            "de conjuração desse truque."
+        ),
+        view
+    )
+
+
+class EscolhaTruqueAltoElfoView(
+    ViewDaFicha
+):
+
+    def __init__(
+        self,
+        user_id,
+        estado,
+        truques
+    ):
+        super().__init__(
+            user_id,
+            estado
+        )
+
+        self.truques = truques
+
+        self.select = discord.ui.Select(
+            placeholder="Escolha seu truque de Mago",
+            min_values=1,
+            max_values=1,
+            options=[
+                discord.SelectOption(
+                    label=item["nome"],
+                    value=item["nome"],
+                    description=(
+                        item["escola"].capitalize()
+                        if item["escola"]
+                        else None
+                    )
+                )
+                for item in truques[:25]
+            ]
+        )
+
+        self.select.callback = (
+            self.escolher
+        )
+
+        self.add_item(
+            self.select
+        )
+
+    async def escolher(
+        self,
+        interaction
+    ):
+        self.estado[
+            "truque_alto_elfo"
+        ] = self.select.values[0]
+
+        await finalizar_ficha(
+            interaction,
+            self.estado
+        )
+
 # =========================================================
 # FINALIZAR PERSONAGEM
 # =========================================================
@@ -2210,6 +2334,7 @@ async def finalizar_ficha(
                 35
                 if nome_subraca == "Elfo da Floresta"
                 else raca["deslocamento"]
+            ),
 
             atributos=
                 estado[
@@ -2231,6 +2356,21 @@ async def finalizar_ficha(
         personagem_id = resultado[
             "id"
         ]
+
+        # ================================================
+        # SISTEMA MÁGICO
+        # ================================================
+
+        inicializar_sistema_magico_personagem(
+            personagem_id=personagem_id,
+            classe_nome=classe["nome"],
+            raca_nome=raca["nome"],
+            subraca_nome=nome_subraca,
+            nivel_personagem=1,
+            truque_alto_elfo=estado.get(
+                "truque_alto_elfo"
+            ),
+        )
 
         # ================================================
         # INVENTÁRIO

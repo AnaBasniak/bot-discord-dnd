@@ -690,6 +690,49 @@ CREATE TABLE magias_classes (
 
 
 -- =========================================================
+-- PROGRESSÃO DE SLOTS DE MAGIA POR CLASSE
+-- =========================================================
+
+CREATE TABLE slots_magia_classes (
+    id SERIAL PRIMARY KEY,
+
+    classe_id INTEGER NOT NULL,
+
+    nivel_classe INTEGER NOT NULL,
+    nivel_magia INTEGER NOT NULL,
+
+    quantidade INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT fk_slots_magia_classe
+        FOREIGN KEY (classe_id)
+        REFERENCES classes(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_slots_magia_classe
+        UNIQUE (
+            classe_id,
+            nivel_classe,
+            nivel_magia
+        ),
+
+    CONSTRAINT chk_nivel_classe_slot
+        CHECK (
+            nivel_classe BETWEEN 1 AND 20
+        ),
+
+    CONSTRAINT chk_nivel_magia_slot
+        CHECK (
+            nivel_magia BETWEEN 1 AND 9
+        ),
+
+    CONSTRAINT chk_quantidade_slot
+        CHECK (
+            quantidade >= 0
+        )
+);
+
+
+-- =========================================================
 -- MAGIAS DO PERSONAGEM
 -- =========================================================
 
@@ -700,7 +743,11 @@ CREATE TABLE magias_personagens (
 
     magia_id INTEGER NOT NULL,
 
+    conhecida BOOLEAN NOT NULL DEFAULT TRUE,
+
     preparada BOOLEAN NOT NULL DEFAULT FALSE,
+
+    origem TEXT NOT NULL DEFAULT 'classe',
 
     CONSTRAINT fk_magia_personagem
         FOREIGN KEY (personagem_id)
@@ -713,7 +760,71 @@ CREATE TABLE magias_personagens (
         ON DELETE CASCADE,
 
     CONSTRAINT uq_magia_personagem
-        UNIQUE (personagem_id, magia_id)
+        UNIQUE (
+            personagem_id,
+            magia_id,
+            origem
+        )
+);
+
+
+-- =========================================================
+-- MAGIAS RACIAIS DO PERSONAGEM
+-- =========================================================
+
+CREATE TABLE magias_raciais_personagens (
+    id SERIAL PRIMARY KEY,
+
+    personagem_id INTEGER NOT NULL,
+
+    magia_id INTEGER NOT NULL,
+
+    origem TEXT NOT NULL,
+
+    habilidade_conjuracao TEXT NOT NULL,
+
+    nivel_desbloqueio INTEGER NOT NULL DEFAULT 1,
+
+    usa_slot BOOLEAN NOT NULL DEFAULT FALSE,
+
+    usos_maximos INTEGER,
+
+    usos_gastos INTEGER NOT NULL DEFAULT 0,
+
+    descanso_recuperacao TEXT,
+
+    nivel_conjuracao INTEGER,
+
+    CONSTRAINT fk_magia_racial_personagem
+        FOREIGN KEY (personagem_id)
+        REFERENCES personagens(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_magia_racial_magia
+        FOREIGN KEY (magia_id)
+        REFERENCES magias(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT uq_magia_racial_personagem
+        UNIQUE (
+            personagem_id,
+            magia_id,
+            origem
+        ),
+
+    CONSTRAINT chk_magia_racial_nivel
+        CHECK (
+            nivel_desbloqueio BETWEEN 1 AND 20
+        ),
+
+    CONSTRAINT chk_magia_racial_usos
+        CHECK (
+            usos_gastos >= 0
+            AND (
+                usos_maximos IS NULL
+                OR usos_gastos <= usos_maximos
+            )
+        )
 );
 
 
@@ -738,7 +849,10 @@ CREATE TABLE slots_magia_personagens (
         ON DELETE CASCADE,
 
     CONSTRAINT uq_slot_personagem
-        UNIQUE (personagem_id, nivel_slot),
+        UNIQUE (
+            personagem_id,
+            nivel_slot
+        ),
 
     CONSTRAINT chk_nivel_slot
         CHECK (
@@ -808,69 +922,6 @@ CREATE TABLE imagens_npc (
         FOREIGN KEY (npc_id)
         REFERENCES npcs(id)
         ON DELETE CASCADE
-);
-
-
--- =========================================================
--- COMBATES
--- =========================================================
-
-CREATE TABLE combates (
-    id SERIAL PRIMARY KEY,
-
-    ativo BOOLEAN NOT NULL DEFAULT TRUE,
-
-    rodada INTEGER NOT NULL DEFAULT 1,
-
-    turno_atual INTEGER NOT NULL DEFAULT 0,
-
-    criado_em TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    encerrado_em TIMESTAMP
-);
-
-
--- =========================================================
--- PARTICIPANTES DO COMBATE
--- =========================================================
-
-CREATE TABLE participantes_combate (
-    id SERIAL PRIMARY KEY,
-
-    combate_id INTEGER NOT NULL,
-
-    personagem_id INTEGER,
-
-    npc_id INTEGER,
-
-    nome TEXT NOT NULL,
-
-    iniciativa INTEGER NOT NULL DEFAULT 0,
-
-    pv_atual INTEGER,
-
-    ordem INTEGER NOT NULL DEFAULT 0,
-
-    CONSTRAINT fk_participante_combate
-        FOREIGN KEY (combate_id)
-        REFERENCES combates(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_participante_personagem
-        FOREIGN KEY (personagem_id)
-        REFERENCES personagens(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_participante_npc
-        FOREIGN KEY (npc_id)
-        REFERENCES npcs(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT chk_origem_participante
-        CHECK (
-            personagem_id IS NOT NULL
-            OR npc_id IS NOT NULL
-        )
 );
 
 
