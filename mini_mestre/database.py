@@ -8,14 +8,10 @@ load_dotenv()
 
 
 def conectar():
-    """
-    Abre e retorna uma nova conexão com o PostgreSQL.
-    """
-
     return psycopg2.connect(
         host=os.getenv("DB_HOST"),
         port=os.getenv("DB_PORT"),
         database=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
+        password=os.getenv("DB_PASSWORD")
     )
